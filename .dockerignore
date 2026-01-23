@@ -1,0 +1,9 @@
+*.db
+.git
+.gitignore
+README.md
+*.md
+.vscode
+.idea
+*.exe
+*.test

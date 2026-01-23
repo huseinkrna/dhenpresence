@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <title>Dashboard - Dhen Coffee</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/png" href="/assets/logo.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#f3f4f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;800&family=Noto+Serif+Javanese&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        const normalQuotes = ["Datang kerja bukan karena cinta kopi, tapi karena dompet udah kritis.", "Senyum ke pelanggan walau hati pengen lempar sendok.", "Kopi mahal, gaji murah, hidup seimbang katanya.", "Berdiri 8 jam itu cardio gratis, kata manajer.", "Salah bikin kopi, rasa bersalahnya lebih pahit dari espresso.", "Datang pagi, pulang malam, ngerasain matahari cuma lewat kaca.", "Barista bukan capek, cuma kurang tidur permanen.", "Jam kerja fleksibel, fleksibel nambahnya.", "Pelanggan bilang “kurang panas”, hati ikut mendidih.", "Gaji kurang dari UMR, ekspektasi rasa internasional.", "Tangan bau kopi, hidup bau perjuangan.", "Break 10 menit rasanya kayak cuti tahunan.", "Latte art jelek dikit, harga diri langsung turun.", "Kerja sambil senyum, nangisnya pas cuci gelas.", "Mesin kopi lebih diperhatiin daripada pegawai.", "Hari libur itu konsep abstrak.", "Kaki pegal tapi harus bilang “siap kak”.", "Kopi tumpah dikit, gaji serasa ikut tumpah.", "Jam sepi bukan buat istirahat, tapi buat disuruh bersih-bersih.", "Pelanggan salah pesen, barista yang disalahin.", "Kerja pakai hati, dibayar pakai pengalaman.", "Shift malam bikin akrab sama lampu neon.", "Capek boleh, jutek jangan. Kata SOP.", "Minum kopi gratis tapi insomnia bayar sendiri.", "Senyum adalah bagian dari seragam.", "Habis shift rasanya kayak abis ikut lomba maraton tanpa piala.", "Gaji kecil tapi tanggung jawab segede galon.", "Barista bukan pelayan, tapi semua disuruh.", "Lagu kafe muter terus, kewarasan enggak.", "Pelanggan bilang “kok lama”, padahal mesin juga capek.", "Salah foam dikit, disemprot kayak bikin dosa besar.", "Hari kerja itu panjang, minggu terasa bohong.", "Kopi hitam, nasib lebih gelap.", "Target penjualan naik, kursi buat duduk tetap nihil.", "Shift pagi ngantuk, shift malam kosong jiwa.", "Barista itu kuat, soalnya nggak ada pilihan.", "Gaji masuk, langsung numpang lewat.", "Cuma mau kerja jujur, tapi jam kerja licik.", "Bau kopi nempel, bau masa depan masih samar.", "Kerja cepat salah, kerja pelan dimarahin.", "Pelanggan minta senyuman gratis, capeknya berbayar.", "Mesin rusak, barista yang panik duluan.", "Setiap tutup toko, badan ikut shutdown.", "Ngitung kembalian sambil nahan emosi.", "Barista bukan cuma bikin kopi, tapi juga nahan hidup.", "Pegel itu default setting.", "Capek hari ini demi bisa capek lagi besok.", "Kopi dingin bisa dibikin ulang, semangat enggak.", "Tetap berdiri, meski isi kepala udah rebahan.", "Bertahan bukan karena kuat, tapi karena belum ada pilihan lain."];
+        const sickQuotes = ["Sakit itu mahal, mending sehat. Cepat sembuh!", "Mesin kopi kangen sentuhanmu.", "Istirahat total, jangan push rank!", "Pelanggan nanyain 'mana yang biasa bikin enak?'.", "Obat diminum, jangan dilihatin.", "Sakit itu libur menyiksa. Balik woi!", "Gws bro, semoga dompetnya gak sakit.", "Rebahan boleh, ingat cicilan."];
+        const permitQuotes = ["Liburan mulu, awas lupa password.", "Izin boleh, ingat cicilan.", "Puas-puasin, besok neraka menanti.", "Jangan lupa oleh-oleh buat Owner.", "Keseringan izin nanti jadi alumni.", "Liburan tanpa ingat kerjaan itu mitos.", "Gaji aman? Yakin?", "Nikmati harimu sebelum cuci gelas."];
+
+        if (performance.getEntriesByType("navigation")[0].type === "reload") window.location.replace("/logout");
+        function updateTime() {
+            const n = new Date();
+            document.getElementById('digitalClock').innerText = n.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':');
+            document.getElementById('nationalDate').innerText = n.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            document.getElementById('hijriDate').innerText = new Intl.DateTimeFormat('id-ID-u-ca-islamic', { day: 'numeric', month: 'long', year: 'numeric' }).format(n) + " H";
+            document.getElementById('chineseDate').innerText = "Imlek: " + new Intl.DateTimeFormat('id-ID-u-ca-chinese', { year: 'numeric' }).format(n);
+            const d = Math.floor((n - new Date(2024, 0, 1)) / (24 * 60 * 60 * 1000)); document.getElementById('javaneseDate').innerText = "Pasaran: " + ['Legi', 'Pahing', 'Pon', 'Wage', 'Kliwon'][(d + 1) % 5];
+        }
+        function setQuote() {
+            let t = 'normal', c = document.getElementById('permitContainer'); if (c) t = c.getAttribute('data-status');
+            let s = normalQuotes; if (t === 'sick') s = sickQuotes; if (t === 'permit') s = permitQuotes;
+            document.getElementById('quoteText').innerText = '"' + s[Math.floor(Math.random() * s.length)] + '"';
+        }
+        let selShift = "";
+        function selS(t, ty, b) { document.querySelectorAll('.sb').forEach(x => { x.classList.remove('ring-4', 'ring-green-400', 'opacity-100'); x.classList.add('opacity-60', 'grayscale') }); b.classList.remove('opacity-60', 'grayscale'); b.classList.add('opacity-100', 'ring-4', 'ring-green-400'); selShift = t; localStorage.setItem("tst", ty); }
+        function clkIn() {
+            if (!selShift) { alert("Pilih Shift!"); return }
+            const b = document.getElementById('bIn'); b.disabled = true; b.innerHTML = 'Mencari...';
+            navigator.geolocation.getCurrentPosition(p => snd(p.coords.latitude, p.coords.longitude, selShift), e => { alert("GPS Mati!"); b.disabled = false; b.innerHTML = "📍 CLOCK IN" }, { enableHighAccuracy: true });
+        }
+        function snd(lat, lon, s) { fetch('/api/clockin', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `lat=${lat}&long=${lon}&shift=${s}` }).then(r => r.json()).then(d => { if (d.success) { localStorage.setItem('lst', JSON.stringify({ d: new Date().toISOString().slice(0, 10), t: localStorage.getItem("tst") })); location.reload() } else { alert(d.message); document.getElementById('bIn').disabled = false; document.getElementById('bIn').innerHTML = "📍 CLOCK IN" } }) }
+        function clkOut() { if (confirm("Pulang?")) fetch('/api/clockout', { method: 'POST' }).then(r => r.json()).then(d => { alert(d.message); location.reload() }) }
+        let pd = "FULL", ps = "";
+        function setPd(t) { pd = t; document.getElementById('bf').className = t === 'FULL' ? 'flex-1 py-2 rounded bg-green-600 text-white font-bold' : 'flex-1 py-2 rounded bg-gray-100 text-gray-500 font-bold'; document.getElementById('bs').className = t === 'SHIFT' ? 'flex-1 py-2 rounded bg-green-600 text-white font-bold' : 'flex-1 py-2 rounded bg-gray-100 text-gray-500 font-bold'; document.getElementById('psb').className = t === 'FULL' ? 'hidden' : 'block bg-gray-50 p-2 rounded mt-2 border border-dashed border-gray-300' }
+        function sps(n, b) { ps = n; document.querySelectorAll('.psb').forEach(x => x.classList.remove('ring-2', 'ring-green-500', 'bg-green-100')); b.classList.add('ring-2', 'ring-green-500', 'bg-green-100') }
+        function subP() { const t = document.querySelector('input[name="pt"]:checked').value, r = document.getElementById('pr').value; if (!r) { alert("Alasan?"); return } if (pd === 'SHIFT' && !ps) { alert("Shift?"); return } fetch('/api/permit', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `type=${t}&duration=${pd}&shift=${ps}&reason=${r}` }).then(r => r.json()).then(d => { alert(d.message); location.reload() }) }
+        window.onload = function () { updateTime(); setInterval(updateTime, 1000); setQuote(); const t = new Date().toISOString().slice(0, 10), l = JSON.parse(localStorage.getItem('lst') || '{}'); if (l.d === t && l.t === 'long_pagi') { document.getElementById('gn').style.display = 'none'; document.getElementById('blp').style.display = 'none' } }
+    </script>
+    <style>
+        .pb {
+            background-color: #f3f4f6;
+            background-image: radial-gradient(#064e3b 0.5px, #f3f4f6 0.5px);
+            background-size: 10px 10px
+        }
+
+        .sb {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+        }
+    </style>
+</head>
+
+<body class="pb min-h-screen flex flex-col items-center justify-center p-4">
+    <div id="mainUI"
+        class="bg-white/95 backdrop-blur-sm p-6 rounded-[2.5rem] shadow-2xl text-center max-w-sm w-full border border-white relative overflow-hidden">
+
+        <div class="mb-2 flex justify-between items-center border-b border-dashed border-gray-200 pb-3">
+            <div class="text-left flex items-center gap-2">
+                <img src="{{.AvatarURL}}" class="w-10 h-10 rounded-full bg-gray-100 border-2 border-green-500">
+                <div>
+                    <p class="text-[10px] text-gray-400 font-bold tracking-widest uppercase mb-0.5">HALO,</p>
+                    <h2 class="text-md font-extrabold text-[#064e3b] leading-tight break-words max-w-[120px]">
+                        {{.FullName}}</h2>
+                </div>
+            </div>
+            <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md p-1">
+                <img src="/assets/logo.png" class="w-full h-full object-contain">
+            </div>
+        </div>
+
+        <div class="mb-4 bg-gray-50 rounded-2xl p-3 border border-gray-100 shadow-inner">
+            <h1 id="nationalDate" class="text-lg font-bold text-gray-800 tracking-tight">Loading...</h1>
+            <div class="flex justify-center gap-2 mt-1 text-[10px] text-gray-500 font-medium"><span id="javaneseDate"
+                    class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded">Jawa</span><span id="hijriDate"
+                    class="bg-green-100 text-green-800 px-2 py-0.5 rounded">Hijri</span></div>
+            <div class="mt-1"><span id="chineseDate"
+                    class="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded border border-red-100">Cina</span>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h1 id="digitalClock"
+                class="text-5xl font-black text-[#064e3b] font-[Share_Tech_Mono] tracking-widest drop-shadow-sm">00:00
+            </h1>
+            <p class="text-[10px] text-gray-400 mt-[-5px]">WIB - Dhen Time</p>
+        </div>
+
+        {{if .IsWorking}}
+        <div class="py-4 animate-fade-in">
+            <div
+                class="mb-6 p-4 bg-green-50 text-green-800 rounded-2xl text-sm border border-green-200 shadow-sm relative overflow-hidden">
+                <span class="font-bold flex items-center gap-2"><span
+                        class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Status:</span> Sedang Bertugas ☕
+            </div>
+            <button onclick="clkOut()"
+                class="w-full h-16 bg-gradient-to-r from-red-600 to-red-700 text-white text-lg font-bold rounded-2xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all gap-2 flex items-center justify-center"><i
+                    class="fa-solid fa-door-open"></i> CLOCK OUT</button>
+        </div>
+        {{else if .PermitStatus}}
+        <div id="permitContainer" class="py-4 animate-fade-in" data-status="{{if .IsSick}}sick{{else}}permit{{end}}">
+            {{if .IsSick}}
+            <div
+                class="mb-4 p-6 bg-red-50 text-red-900 rounded-2xl text-sm border border-red-200 shadow-sm relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 opacity-10"><i class="fa-solid fa-virus text-8xl"></i></div>
+                <div class="flex flex-col items-center relative z-10">
+                    <div
+                        class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-3 text-3xl text-red-600 animate-pulse">
+                        <i class="fa-solid fa-bed-pulse"></i></div>
+                    <h3 class="font-bold text-xl tracking-tight">ANDA SEDANG SAKIT</h3>
+                    <div class="mt-3 bg-white/60 px-4 py-2 rounded-xl border border-red-100 w-full">
+                        <p class="text-[10px] uppercase font-bold text-red-400 mb-1">Alasan:</p>
+                        <p class="text-sm font-medium italic">"{{.PermitReason}}"</p>
+                    </div>
+                </div>
+            </div>
+            {{else}}
+            <div
+                class="mb-4 p-6 bg-yellow-50 text-yellow-900 rounded-2xl text-sm border border-yellow-200 shadow-sm relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 opacity-10"><i class="fa-solid fa-plane-departure text-8xl"></i>
+                </div>
+                <div class="flex flex-col items-center relative z-10">
+                    <div
+                        class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-3 text-3xl text-yellow-600">
+                        <i class="fa-solid fa-umbrella-beach"></i></div>
+                    <h3 class="font-bold text-xl tracking-tight">ANDA SEDANG IZIN</h3>
+                    <div class="mt-3 bg-white/60 px-4 py-2 rounded-xl border border-yellow-100 w-full">
+                        <p class="text-[10px] uppercase font-bold text-yellow-500 mb-1">Keperluan:</p>
+                        <p class="text-sm font-medium italic">"{{.PermitReason}}"</p>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <p class="text-xs text-gray-500 mb-3 text-left pl-1">Pilih shift tugas negara hari ini:</p>
+        <div class="space-y-3 mb-6">
+            <div id="gn" class="grid grid-cols-3 gap-2">
+                <button onclick="selS('08:00','pagi',this)"
+                    class="sb bg-white border border-gray-200 text-gray-600 p-3 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-amber-50 opacity-60 grayscale"><i
+                        class="fa-regular fa-sun text-xl"></i><span class="text-[10px] font-bold">PAGI</span></button>
+                <button onclick="selS('14:40','sore',this)"
+                    class="sb bg-white border border-gray-200 text-gray-600 p-3 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-orange-50 opacity-60 grayscale"><i
+                        class="fa-solid fa-cloud-sun text-xl"></i><span
+                        class="text-[10px] font-bold">SORE</span></button>
+                <button onclick="selS('19:40','malam',this)"
+                    class="sb bg-white border border-gray-200 text-gray-600 p-3 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-indigo-50 opacity-60 grayscale"><i
+                        class="fa-solid fa-moon text-xl"></i><span class="text-[10px] font-bold">MALAM</span></button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <button id="blp" onclick="selS('08:00','long_pagi',this)"
+                    class="sb bg-cyan-50 border border-cyan-100 text-cyan-800 p-3 rounded-2xl flex items-center justify-center gap-3 hover:bg-cyan-100 opacity-60 grayscale"><span
+                        class="text-2xl">😇</span>
+                    <div class="text-left"><span class="text-[10px] font-bold block">LONG PAGI</span></div>
+                </button>
+                <button id="bls" onclick="selS('16:00','long_sore',this)"
+                    class="sb bg-red-50 border border-red-100 text-red-900 p-3 rounded-2xl flex items-center justify-center gap-3 hover:bg-red-100 opacity-60 grayscale"><span
+                        class="text-2xl">😈</span>
+                    <div class="text-left"><span class="text-[10px] font-bold block">LONG SORE</span></div>
+                </button>
+            </div>
+        </div>
+        <button id="bIn" onclick="clkIn()"
+            class="w-full h-16 bg-[#064e3b] text-white text-lg font-bold rounded-2xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"><i
+                class="fa-solid fa-location-dot"></i> CLOCK IN</button>
+        {{end}}
+
+        <div
+            class="mt-6 p-4 bg-yellow-50 rounded-xl border-l-4 border-yellow-400 text-left relative transform rotate-1 hover:rotate-0 transition-transform duration-300">
+            <span class="absolute top-2 right-2 text-[10px] text-yellow-400 font-bold">#CurhatBarista</span>
+            <p id="quoteText" class="text-sm text-gray-700 italic font-medium pr-2 leading-relaxed">Loading...</p>
+        </div>
+        <div class="flex justify-center mt-6 gap-4 border-t pt-4"><button
+                onclick="document.getElementById('pm').classList.remove('hidden')"
+                class="px-4 py-2 text-xs font-semibold text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100 border border-amber-200">📝
+                Izin / Sakit</button><a href="/logout"
+                class="px-4 py-2 text-xs font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100 border border-red-200">🚪
+                Logout</a></div>
+        <div class="mt-6 text-center"><a href="https://www.instagram.com/husein.krna?igsh=MXAzc29heDQ4ZXh3dg=="
+                target="_blank"
+                class="text-[10px] text-gray-300 hover:text-[#064e3b] hover:font-bold hover:scale-110 transition-all block">DhenPresence
+                by Husein K R</a></div>
+    </div>
+
+    <div id="pm"
+        class="fixed inset-0 bg-black/60 z-50 hidden flex items-end sm:items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-t-[2rem] sm:rounded-3xl p-6 w-full max-w-sm m-0 sm:m-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-gray-800 text-lg">Formulir Izin 📝</h3><button
+                    onclick="document.getElementById('pm').classList.add('hidden')"
+                    class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <p class="text-xs font-bold text-gray-500 uppercase mb-2">Jenis</p>
+                    <div class="flex gap-2"><label class="flex-1 cursor-pointer"><input type="radio" name="pt"
+                                value="SAKIT" class="peer hidden" checked>
+                            <div
+                                class="peer-checked:bg-red-100 peer-checked:border-red-500 peer-checked:text-red-700 bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
+                                <i class="fa-solid fa-temperature-arrow-up mb-1"></i>
+                                <div class="text-xs font-bold">Sakit</div>
+                            </div>
+                        </label><label class="flex-1 cursor-pointer"><input type="radio" name="pt" value="IZIN"
+                                class="peer hidden">
+                            <div
+                                class="peer-checked:bg-yellow-100 peer-checked:border-yellow-500 peer-checked:text-yellow-700 bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
+                                <i class="fa-solid fa-umbrella-beach mb-1"></i>
+                                <div class="text-xs font-bold">Izin/Libur</div>
+                            </div>
+                        </label></div>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-gray-500 uppercase mb-2">Durasi</p>
+                    <div class="flex bg-gray-100 p-1 rounded-xl"><button id="bf" onclick="setPd('FULL')"
+                            class="flex-1 py-2 rounded bg-green-600 text-white font-bold">Seharian</button><button
+                            id="bs" onclick="setPd('SHIFT')"
+                            class="flex-1 py-2 rounded bg-gray-100 text-gray-500 font-bold">Per Shift</button></div>
+                </div>
+                <div id="psb" class="hidden">
+                    <p class="text-[10px] text-gray-400 mb-2">Pilih Shift:</p>
+                    <div class="flex gap-2"><button onclick="sps('Pagi',this)"
+                            class="psb flex-1 py-2 bg-white border border-gray-200 rounded text-xs font-bold">Pagi</button><button
+                            onclick="sps('Sore',this)"
+                            class="psb flex-1 py-2 bg-white border border-gray-200 rounded text-xs font-bold">Sore</button><button
+                            onclick="sps('Malam',this)"
+                            class="psb flex-1 py-2 bg-white border border-gray-200 rounded text-xs font-bold">Malam</button>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-gray-500 uppercase mb-2">Alasan</p><textarea id="pr" rows="3"
+                        class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-green-500 outline-none"
+                        placeholder="Isi alasan..."></textarea>
+                </div><button onclick="subP()"
+                    class="w-full py-4 bg-[#064e3b] text-white font-bold rounded-xl shadow-lg hover:bg-green-800">KIRIM</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

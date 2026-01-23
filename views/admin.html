@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <title>Owner Dashboard - DhenPresence</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/assets/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen pb-20">
+    <nav class="bg-[#064e3b] text-white p-4 shadow-lg sticky top-0 z-40">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3"><img src="{{.UserAvatar}}"
+                    class="w-10 h-10 rounded-full border-2 border-green-400 bg-white">
+                <div>
+                    <h1 class="font-bold text-lg tracking-wider leading-none">DHEN ADMIN</h1>
+                    <p class="text-[10px] text-green-200">Halo, {{.UserFullName}}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3"><a href="/dashboard"
+                    class="text-xs bg-green-700/50 hover:bg-green-600 px-3 py-1.5 rounded-lg transition"><i
+                        class="fa-solid fa-mobile-screen"></i> App</a><a href="/logout"
+                    class="text-xs bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition"><i
+                        class="fa-solid fa-right-from-bracket"></i></a></div>
+        </div>
+    </nav>
+
+    <div class="max-w-5xl mx-auto p-4 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="md:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-3">Filter Periode</h2>
+                <form action="/admin" method="GET" class="flex flex-col sm:flex-row gap-3 items-end">
+                    <div class="w-full"><label class="text-xs text-gray-500 block mb-1">Dari</label><input type="date"
+                            name="start" value="{{.FilterStart}}"
+                            class="w-full p-2 bg-gray-50 border rounded-lg text-sm"></div>
+                    <div class="w-full"><label class="text-xs text-gray-500 block mb-1">Sampai</label><input type="date"
+                            name="end" value="{{.FilterEnd}}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm">
+                    </div><button type="submit"
+                        class="w-full sm:w-auto px-6 py-2 bg-gray-800 hover:bg-black text-white rounded-lg text-sm font-bold"><i
+                            class="fa-solid fa-filter mr-1"></i> Tampilkan</button>
+                </form>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-2 opacity-10"><i
+                        class="fa-solid fa-money-bill-wave text-6xl text-green-800"></i></div>
+                <h2 class="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Gaji Per Jam</h2>
+                <div class="flex gap-2 mt-2"><input type="text" id="globalRateInput" value="{{.CurrentRate}}"
+                        class="w-full p-2 border border-gray-300 rounded-lg text-lg font-bold text-green-700 bg-white"
+                        onkeyup="formatRupiah(this)"><button onclick="saveGlobalRate()"
+                        class="bg-green-700 text-white px-3 rounded-lg"><i class="fa-solid fa-check"></i></button></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+                class="bg-gradient-to-br from-[#064e3b] to-green-900 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
+                <div class="absolute -right-4 -bottom-4 opacity-20"><i class="fa-solid fa-wallet text-9xl"></i></div>
+                <h2 class="text-green-200 text-xs font-bold uppercase tracking-widest mb-1">Total Payroll</h2>
+                <p class="text-4xl font-black mt-6 tracking-tight">{{.TotalSalary}}</p>
+                <p class="text-[10px] text-green-200 mt-2 bg-white/10 inline-block px-2 py-1 rounded">*Sudah bersih</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-y-auto max-h-48">
+                <h2 class="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span> Live Monitoring</h2>{{if
+                .LiveWorkers}}<div class="space-y-3">{{range .LiveWorkers}}<div
+                        class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <div class="flex items-center gap-3"><img src="{{.Avatar}}"
+                                class="w-8 h-8 rounded-full bg-green-100 border">
+                            <div>
+                                <p class="font-bold text-gray-800 text-sm">{{.Name}}</p>
+                                <p class="text-[10px] text-gray-500">{{.ShiftTime}}</p>
+                            </div>
+                        </div>
+                        <div class="text-right"><span
+                                class="text-xs font-mono font-bold text-green-600 block">{{.Duration}}</span></div>
+                    </div>{{end}}</div>{{else}}<div
+                    class="flex flex-col items-center justify-center h-24 text-gray-300"><i
+                        class="fa-solid fa-shop-slash text-2xl mb-1"></i>
+                    <p class="text-xs">Cafe Sepi / Tutup</p>
+                </div>{{end}}
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                <h2 class="font-bold text-gray-800 text-sm"><i
+                        class="fa-solid fa-list-check mr-2 text-green-700"></i>Log Presensi</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-600">
+                    <thead class="bg-gray-100 text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                        <tr>
+                            <th class="px-6 py-3">Tanggal</th>
+                            <th class="px-6 py-3">Nama</th>
+                            <th class="px-6 py-3">Shift</th>
+                            <th class="px-6 py-3">Status</th>
+                            <th class="px-6 py-3 text-right">Gaji Final</th>
+                            <th class="px-6 py-3 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        {{range .History}}
+                        <tr class="hover:bg-green-50/50 transition">
+                            <td class="px-6 py-4 font-mono text-xs">{{.Date}}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3"><img src="{{.Avatar}}"
+                                        class="w-8 h-8 rounded-full bg-gray-100 border"><span
+                                        class="font-bold text-gray-800">{{.Name}}</span></div>
+                            </td>
+                            <td class="px-6 py-4"><span class="text-xs font-medium">{{.Shift}}</span>
+                                <div class="text-[10px] text-gray-400">{{.TotalHours}}</div>
+                            </td>
+                            <td class="px-6 py-4"><span
+                                    class="px-2 py-1 rounded text-[10px] font-bold border {{if eq .Status " ✅ On Time"}}
+                                    bg-green-50 text-green-700 border-green-100 {{else}} bg-red-50 text-red-700
+                                    border-red-100 {{end}}">{{.Status}}</span></td>
+                            <td class="px-6 py-4 text-right font-mono font-bold text-green-800">{{.SalaryEst}}</td>
+                            <td class="px-6 py-4 text-center flex justify-center gap-2">
+                                <button
+                                    onclick="openDetailModal('{{.Name}}','{{.PhoneNumber}}','{{.Status}}','{{.PermitReason}}','{{.Avatar}}')"
+                                    class="text-gray-400 hover:text-green-600 hover:bg-green-50 p-2 rounded-lg transition"><i
+                                        class="fa-solid fa-eye"></i></button>
+                                <button onclick="openEditModal({{.ID}},'{{.Name}}',{{.OriginalSalary}})"
+                                    class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition"><i
+                                        class="fa-solid fa-pen-to-square"></i></button>
+                                <button onclick="resetPassword({{.ID}},'{{.Name}}')"
+                                    class="text-gray-400 hover:text-amber-600 hover:bg-amber-50 p-2 rounded-lg transition"
+                                    title="Reset Password"><i class="fa-solid fa-key"></i></button>
+                                <button onclick="deleteLog({{.ID}},'{{.Name}}')"
+                                    class="text-gray-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition"
+                                    title="Hapus Permanen"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            {{if not .History}}<div class="p-10 text-center text-gray-400 bg-gray-50">
+                <p class="text-sm">Tidak ada data.</p>
+            </div>{{end}}
+        </div>
+        <div class="text-center pb-12">
+            <p class="text-xs text-gray-400 mb-2">Data Keuangan Bersifat Rahasia • Dhen Coffee Admin</p><a href="#"
+                class="text-[10px] text-gray-300 hover:text-[#064e3b] hover:font-bold hover:scale-110 block">DhenPresence
+                by Husein K R</a>
+        </div>
+    </div>
+
+    <div id="editModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm m-4">
+            <h3 class="text-lg font-bold text-gray-800 mb-1">Edit Gaji Manual</h3>
+            <p class="text-xs text-gray-500 mb-4">Ubah gaji untuk <span id="modalWorkerName"
+                    class="font-bold text-green-700">User</span></p><input type="hidden" id="modalLogID">
+            <div class="mb-6"><label class="block text-xs font-bold text-gray-500 mb-1 uppercase">Nominal
+                    Baru</label><input type="text" id="modalSalaryInput"
+                    class="w-full text-2xl font-bold text-gray-800 border-b-2 border-gray-200 focus:border-green-600 focus:outline-none py-2"
+                    onkeyup="formatRupiah(this)"></div>
+            <div class="flex gap-3"><button onclick="document.getElementById('editModal').classList.add('hidden')"
+                    class="flex-1 py-3 bg-gray-100 rounded-xl font-bold text-sm">Batal</button><button
+                    onclick="saveLogSalary()"
+                    class="flex-1 py-3 bg-[#064e3b] text-white rounded-xl font-bold text-sm">Simpan</button></div>
+        </div>
+    </div>
+    <div id="detailModal"
+        class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-3xl shadow-2xl p-0 w-full max-w-sm m-4 overflow-hidden relative">
+            <div class="bg-[#064e3b] h-24 relative flex items-center justify-center">
+                <div class="w-24 h-24 bg-white rounded-full p-1 shadow-lg absolute -bottom-10"><img id="detAvatar"
+                        src="" class="w-full h-full rounded-full object-cover bg-gray-100"></div><button
+                    onclick="document.getElementById('detailModal').classList.add('hidden')"
+                    class="absolute top-4 right-4 text-white/70 hover:text-white"><i
+                        class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="pt-12 pb-6 px-6 text-center">
+                <h3 id="detName" class="text-xl font-bold text-gray-800 mt-2">Nama</h3>
+                <div class="flex justify-center gap-2 mt-2"><span id="detStatus"
+                        class="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Status</span></div>
+                <div class="mt-6 space-y-4 text-left">
+                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center gap-3">
+                        <div
+                            class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                            <i class="fa-solid fa-phone"></i></div>
+                        <div class="flex-1">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">WhatsApp / HP</p><a
+                                id="detPhoneLink" href="#" target="_blank"
+                                class="text-sm font-bold text-gray-800 hover:text-green-600 hover:underline">0812-XXXX-XXXX</a>
+                        </div>
+                    </div>
+                    <div id="reasonBox" class="bg-red-50 p-3 rounded-xl border border-red-100 flex items-start gap-3">
+                        <div
+                            class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 flex-shrink-0">
+                            <i class="fa-solid fa-quote-left"></i></div>
+                        <div>
+                            <p class="text-[10px] text-red-400 uppercase font-bold">Alasan Izin/Sakit</p>
+                            <p id="detReason" class="text-sm text-gray-700 italic">"..."</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function formatRupiah(i) { let v = i.value.replace(/[^,\d]/g, '').toString(), s = v.length % 3, r = v.substr(0, s), rb = v.substr(s).match(/\d{3}/gi); if (rb) r += (s ? '.' : '') + rb.join('.'); i.value = 'Rp ' + r }
+        function cleanRupiah(s) { return s.replace(/[^0-9]/g, '') }
+        window.onload = function () { let r = document.getElementById('globalRateInput'); if (r && r.value) { r.value = parseInt(cleanRupiah(r.value)).toLocaleString('id-ID'); formatRupiah(r) } }
+        function saveGlobalRate() { let v = document.getElementById('globalRateInput').value; if (!confirm("Ubah gaji SEMUA user?")) return; fetch('/admin/update_rate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `rate=${cleanRupiah(v)}` }).then(r => r.json()).then(d => { alert(d.message); location.reload() }) }
+        function openEditModal(id, n, s) { document.getElementById('editModal').classList.remove('hidden'); document.getElementById('modalWorkerName').innerText = n; document.getElementById('modalLogID').value = id; let i = document.getElementById('modalSalaryInput'); i.value = s; formatRupiah(i); i.focus() }
+        function saveLogSalary() { let id = document.getElementById('modalLogID').value, v = document.getElementById('modalSalaryInput').value; fetch('/admin/update_salary', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `id=${id}&salary=${cleanRupiah(v)}` }).then(r => r.json()).then(d => { alert(d.message); location.reload() }) }
+        function openDetailModal(n, p, s, r, a) { document.getElementById('detailModal').classList.remove('hidden'); document.getElementById('detName').innerText = n; document.getElementById('detAvatar').src = a || "https://api.dicebear.com/7.x/adventurer/svg?seed=default"; const pd = document.getElementById('detPhoneLink'); if (p === '-' || !p) { pd.innerText = "No Phone"; pd.href = "#" } else { pd.innerText = p; let w = p.replace(/^0/, '62').replace(/[^0-9]/g, ''); pd.href = `https://wa.me/${w}` } const sd = document.getElementById('detStatus'); sd.innerText = s.replace(/[\u{1F300}-\u{1F6FF}]/gu, ''); if (s.includes("IZIN") || s.includes("SAKIT") || s.includes("TELAT")) sd.className = "px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full"; else sd.className = "px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full"; const rb = document.getElementById('reasonBox'); if (r === '-' || !r) rb.classList.add('hidden'); else { rb.classList.remove('hidden'); document.getElementById('detReason').innerText = `"${r}"` } }
+        function resetPassword(id, n) { let p = prompt("Masukkan password BARU untuk " + n + ":"); if (p === null) return; if (p.trim() === "") { alert("Password kosong!"); return } fetch('/admin/reset_password', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `id=${id}&password=${p}` }).then(r => r.json()).then(d => { alert(d.message) }) }
+        // FUNCTION DELETE LOG (BARU)
+        function deleteLog(id, n) { if (!confirm("⚠️ PERINGATAN!\nApakah Anda yakin ingin MENGHAPUS log presensi " + n + "?\nData yang dihapus tidak bisa dikembalikan!")) return; fetch('/admin/delete_log', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `id=${id}` }).then(r => r.json()).then(d => { alert(d.message); location.reload() }) }
+    </script>
+</body>
+
+</html>

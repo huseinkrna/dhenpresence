@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <title>Login - Dhen Coffee</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/png" href="/assets/logo.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#064e3b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif
+        }
+
+        .hidden-form {
+            display: none
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        /* MOTIF POLKADOT */
+        .pattern-bg {
+            background-color: #064e3b;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+
+<body class="pattern-bg h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
+
+    <div class="absolute bottom-[-10%] right-[-10%] opacity-10 pointer-events-none transform rotate-12">
+        <i class="fa-solid fa-mug-hot text-[15rem] text-white"></i>
+    </div>
+
+    <button onclick="toggleAdminMode()"
+        class="absolute top-6 right-6 text-white/50 hover:text-white transition-all transform hover:scale-110 z-20"
+        title="Mode Admin"><i id="adminIcon" class="fa-solid fa-user-shield text-2xl"></i></button>
+
+    <div class="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm relative z-10 fade-in transition-all duration-500 border-4 border-transparent"
+        id="cardContainer">
+        <div class="text-center mb-8">
+            <div
+                class="w-24 h-24 bg-white rounded-full mx-auto flex items-center justify-center shadow-lg mb-4 border-4 border-[#064e3b] p-1">
+                <img src="/assets/logo.png" class="w-full h-full rounded-full object-cover"></div>
+            <h1 class="text-2xl font-extrabold text-gray-800" id="pageTitle">Dhen Presence</h1>
+            <p class="text-xs text-gray-400 font-bold tracking-widest uppercase" id="pageSubtitle">Coffee & Work</p>
+        </div>
+
+        <form id="loginForm" action="/login" method="POST" class="space-y-4">
+            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Username</label>
+                <div
+                    class="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 focus-within:ring-2 focus-within:ring-[#064e3b] transition-all">
+                    <i class="fa-solid fa-user text-gray-400 mr-3"></i><input type="text" name="username"
+                        placeholder="Username..."
+                        class="bg-transparent w-full text-sm outline-none text-gray-700 font-bold" required></div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
+                <div
+                    class="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 focus-within:ring-2 focus-within:ring-[#064e3b] transition-all relative">
+                    <i class="fa-solid fa-lock text-gray-400 mr-3"></i>
+                    <input type="password" name="password" id="loginPass" placeholder="••••••••"
+                        class="bg-transparent w-full text-sm outline-none text-gray-700 font-bold" required>
+                    <button type="button" onclick="togglePass('loginPass', this)"
+                        class="absolute right-3 text-gray-400 hover:text-green-700 transition"><i
+                            class="fa-solid fa-eye"></i></button>
+                </div>
+            </div>
+
+            <button type="submit"
+                class="w-full bg-[#064e3b] hover:bg-green-800 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all active:scale-95 text-sm uppercase tracking-wide">Masuk
+                Sekarang</button>
+            <div class="flex justify-between items-center mt-4"><a
+                    href="https://wa.me/6287836384879?text=Bos%20lupa%20password%20login%20nih..." target="_blank"
+                    class="text-xs font-bold text-gray-400 hover:text-red-500 transition-colors">Lupa Sandi?</a><button
+                    type="button" onclick="showRegister()" class="text-xs font-bold text-[#064e3b] hover:underline">Buat
+                    Akun Baru</button></div>
+        </form>
+
+        <form id="registerForm" action="/register" method="POST" class="space-y-4 hidden-form">
+            <div class="flex gap-2">
+                <div class="w-full"><label
+                        class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nama</label><input type="text"
+                        name="fullname"
+                        class="w-full bg-gray-50 border rounded-lg px-3 py-2 text-sm outline-none font-bold" required>
+                </div>
+                <div class="w-full"><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">HP
+                        (WA)</label><input type="tel" name="phone"
+                        class="w-full bg-gray-50 border rounded-lg px-3 py-2 text-sm outline-none font-bold" required>
+                </div>
+            </div>
+            <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Username Unik</label><input
+                    type="text" name="reg_username" placeholder="cth: budikopi"
+                    class="w-full bg-gray-50 border rounded-lg px-3 py-2 text-sm outline-none font-bold" required></div>
+
+            <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Password</label>
+                <div class="relative">
+                    <input type="password" name="reg_password" id="regPass"
+                        class="w-full bg-gray-50 border rounded-lg px-3 py-2 text-sm outline-none font-bold" required>
+                    <button type="button" onclick="togglePass('regPass', this)"
+                        class="absolute right-3 top-2 text-gray-400 hover:text-blue-600 transition"><i
+                            class="fa-solid fa-eye text-xs"></i></button>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 p-2 rounded-lg flex items-center gap-2"><i
+                    class="fa-solid fa-robot text-blue-500"></i>
+                <p class="text-[10px] text-blue-600 font-bold">Avatar lucu otomatis dibuat!</p>
+            </div>
+            <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all active:scale-95 text-sm">DAFTAR
+                & BUAT AVATAR</button>
+            <div class="text-center mt-4"><button type="button" onclick="showLogin()"
+                    class="text-xs font-bold text-gray-400 hover:text-gray-600"><i
+                        class="fa-solid fa-arrow-left mr-1"></i> Kembali ke Login</button></div>
+        </form>
+    </div>
+
+    <script>
+        const p = new URLSearchParams(window.location.search);
+        if (p.has('error')) alert("Login/Register Gagal! Username mungkin sudah ada.");
+        if (p.has('success')) alert("Registrasi Berhasil! Silakan Login.");
+
+        function showRegister() { document.getElementById('loginForm').classList.add('hidden-form'); document.getElementById('registerForm').classList.remove('hidden-form'); document.getElementById('pageTitle').innerText = "Join Team"; }
+        function showLogin() { document.getElementById('registerForm').classList.add('hidden-form'); document.getElementById('loginForm').classList.remove('hidden-form'); document.getElementById('pageTitle').innerText = "Dhen Presence"; }
+
+        // TOGGLE PASSWORD LOGIC
+        function togglePass(id, btn) {
+            const input = document.getElementById(id);
+            const icon = btn.querySelector('i');
+            if (input.type === "password") {
+                input.type = "text";
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = "password";
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        let isAdmin = false;
+        function toggleAdminMode() {
+            isAdmin = !isAdmin; const c = document.getElementById('cardContainer'), i = document.getElementById('adminIcon'), t = document.getElementById('pageTitle');
+            if (isAdmin) { c.classList.add('border-yellow-400'); i.className = 'fa-solid fa-user-tie text-yellow-400 text-2xl'; t.innerText = "Admin Portal"; document.body.style.backgroundColor = "#1e293b"; document.body.classList.remove('pattern-bg'); }
+            else { c.classList.remove('border-yellow-400'); i.className = 'fa-solid fa-user-shield text-white/50 text-2xl'; t.innerText = "Dhen Presence"; document.body.style.backgroundColor = ""; document.body.classList.add('pattern-bg'); }
+        }
+    </script>
+    <div class="mt-8 text-center text-white/50"><a
+            href="https://www.instagram.com/husein.krna?igsh=MXAzc29heDQ4ZXh3dg==" target="_blank"
+            class="text-[10px] transition-all hover:text-white hover:font-bold hover:tracking-wider">DhenPresence by
+            Husein K R</a></div>
+</body>
+
+</html>
