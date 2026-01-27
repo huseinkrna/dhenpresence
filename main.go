@@ -17,8 +17,8 @@ import (
 )
 
 // --- KONFIGURASI ---
-const CAFE_LAT = -7.607873
-const CAFE_LONG = 110.203751
+const CAFE_LAT = -7.773025241743875
+const CAFE_LONG = 110.41145053080596
 const MAX_DISTANCE_METER = 50.0
 
 type Response struct {
