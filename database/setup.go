@@ -2,14 +2,34 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	_ "github.com/lib/pq"  // PostgreSQL driver
 	_ "modernc.org/sqlite" // SQLite driver (fallback lokal)
 )
 
 var DB *sql.DB
+var UsePostgres bool // Flag untuk menandakan apakah menggunakan POSTGRES
+
+// Helper untuk adaptasi query
+func AdaptQuery(q string) string {
+	if !UsePostgres {
+		return q
+	}
+	// Ganti ? dengan $1, $2, dst.
+	n := 1
+	for {
+		if !strings.Contains(q, "?") {
+			break
+		}
+		q = strings.Replace(q, "?", fmt.Sprintf("$%d", n), 1)
+		n++
+	}
+	return q
+}
 
 func InitDB() {
 	var err error
@@ -18,6 +38,7 @@ func InitDB() {
 	dbURL := os.Getenv("DATABASE_URL")
 
 	if dbURL != "" {
+		UsePostgres = true
 		// MODE PRODUCTION: Pakai PostgreSQL (Supabase)
 		log.Println("🌐 Connecting to PostgreSQL (Supabase)...")
 		DB, err = sql.Open("postgres", dbURL)

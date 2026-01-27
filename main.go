@@ -113,7 +113,7 @@ func handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 
 	var dbPass, role string
-	err := database.DB.QueryRow("SELECT password, role FROM users WHERE username = ?", username).Scan(&dbPass, &role)
+	err := database.DB.QueryRow(database.AdaptQuery("SELECT password, role FROM users WHERE username = ?"), username).Scan(&dbPass, &role)
 
 	if err == sql.ErrNoRows || dbPass != password {
 		log.Printf("❌ Login Failed for user '%s'. DB Error: %v. Password Match: %v", username, err, dbPass == password)
@@ -140,7 +140,7 @@ func handleRegisterPost(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("reg_password")
 	avatarURL := fmt.Sprintf("https://api.dicebear.com/7.x/adventurer/svg?seed=%s&backgroundColor=b6e3f4,c0aede,d1d4f9", url.QueryEscape(username))
 
-	_, err := database.DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, 'employee', 10000, ?, ?)", username, password, fullname, phone, avatarURL)
+	_, err := database.DB.Exec(database.AdaptQuery("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, 'employee', 10000, ?, ?)"), username, password, fullname, phone, avatarURL)
 
 	if err != nil {
 		log.Printf("❌ Register Failed for user '%s'. Error: %v", username, err)
@@ -168,7 +168,7 @@ func handleDashboard(w http.ResponseWriter, r *http.Request) {
 	var userID int
 	var fName, avatar string
 	var shiftID sql.NullInt64
-	database.DB.QueryRow(`SELECT u.id, u.full_name, COALESCE(u.avatar_url, ''), a.id FROM users u LEFT JOIN attendance a ON u.id = a.user_id AND a.clock_out_time IS NULL WHERE u.username = ?`, c.Value).Scan(&userID, &fName, &avatar, &shiftID)
+	database.DB.QueryRow(database.AdaptQuery(`SELECT u.id, u.full_name, COALESCE(u.avatar_url, ''), a.id FROM users u LEFT JOIN attendance a ON u.id = a.user_id AND a.clock_out_time IS NULL WHERE u.username = ?`), c.Value).Scan(&userID, &fName, &avatar, &shiftID)
 	if avatar == "" {
 		avatar = "https://api.dicebear.com/7.x/adventurer/svg?seed=default"
 	}
@@ -177,7 +177,7 @@ func handleDashboard(w http.ResponseWriter, r *http.Request) {
 	permitReason := ""
 	isSick := false
 	var statusDB, reasonDB string
-	err = database.DB.QueryRow(`SELECT status, COALESCE(permit_reason, '-') FROM attendance WHERE user_id = ? AND shift_date = ? AND (status LIKE 'IZIN%' OR status LIKE 'SAKIT%') ORDER BY id DESC LIMIT 1`, userID, time.Now().Format("2006-01-02")).Scan(&statusDB, &reasonDB)
+	err = database.DB.QueryRow(database.AdaptQuery(`SELECT status, COALESCE(permit_reason, '-') FROM attendance WHERE user_id = ? AND shift_date = ? AND (status LIKE 'IZIN%' OR status LIKE 'SAKIT%') ORDER BY id DESC LIMIT 1`), userID, time.Now().Format("2006-01-02")).Scan(&statusDB, &reasonDB)
 	if err == nil {
 		permitStatus = statusDB
 		permitReason = reasonDB
@@ -211,8 +211,8 @@ func handleAPIClockIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var userID int
-	database.DB.QueryRow("SELECT id FROM users WHERE username = ?", c.Value).Scan(&userID)
-	database.DB.Exec(`UPDATE attendance SET clock_out_time = ?, is_auto_closed = 1 WHERE clock_out_time IS NULL AND user_id != ?`, time.Now(), userID)
+	database.DB.QueryRow(database.AdaptQuery("SELECT id FROM users WHERE username = ?"), c.Value).Scan(&userID)
+	database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET clock_out_time = ?, is_auto_closed = 1 WHERE clock_out_time IS NULL AND user_id != ?`), time.Now(), userID)
 	isLate := false
 	penalty := 0
 	now := time.Now()
@@ -221,9 +221,9 @@ func handleAPIClockIn(w http.ResponseWriter, r *http.Request) {
 	if now.Sub(expected).Minutes() > 15 {
 		isLate = true
 		penalty = 1
-		database.DB.Exec(`UPDATE attendance SET compensation_hours = compensation_hours + 1 WHERE id = (SELECT MAX(id) FROM attendance WHERE user_id != ?)`, userID)
+		database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET compensation_hours = compensation_hours + 1 WHERE id = (SELECT MAX(id) FROM attendance WHERE user_id != ?)`), userID)
 	}
-	database.DB.Exec(`INSERT INTO attendance (user_id, shift_date, clock_in_time, is_late, penalty_hours) VALUES (?, ?, ?, ?, ?)`, userID, now.Format("2006-01-02"), now, isLate, penalty)
+	database.DB.Exec(database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, clock_in_time, is_late, penalty_hours) VALUES (?, ?, ?, ?, ?)`), userID, now.Format("2006-01-02"), now, isLate, penalty)
 	msg := "Berhasil masuk!"
 	if isLate {
 		msg = "⚠️ TELAT! Potong gaji 1 jam."
@@ -236,8 +236,8 @@ func handleAPIClockOut(w http.ResponseWriter, r *http.Request) {
 	}
 	c, _ := r.Cookie("user_session")
 	var userID int
-	database.DB.QueryRow("SELECT id FROM users WHERE username = ?", c.Value).Scan(&userID)
-	res, _ := database.DB.Exec(`UPDATE attendance SET clock_out_time = ? WHERE user_id = ? AND clock_out_time IS NULL`, time.Now(), userID)
+	database.DB.QueryRow(database.AdaptQuery("SELECT id FROM users WHERE username = ?"), c.Value).Scan(&userID)
+	res, _ := database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET clock_out_time = ? WHERE user_id = ? AND clock_out_time IS NULL`), time.Now(), userID)
 	if rows, _ := res.RowsAffected(); rows == 0 {
 		jsonResponse(w, false, "Belum Clock In!", "")
 		return
@@ -250,12 +250,12 @@ func handleAPIPermit(w http.ResponseWriter, r *http.Request) {
 	}
 	c, _ := r.Cookie("user_session")
 	var userID int
-	database.DB.QueryRow("SELECT id FROM users WHERE username = ?", c.Value).Scan(&userID)
+	database.DB.QueryRow(database.AdaptQuery("SELECT id FROM users WHERE username = ?"), c.Value).Scan(&userID)
 	stat := fmt.Sprintf("%s (%s)", r.FormValue("type"), r.FormValue("shift"))
 	if r.FormValue("duration") == "FULL" {
 		stat = fmt.Sprintf("%s (FULL DAY)", r.FormValue("type"))
 	}
-	database.DB.Exec(`INSERT INTO attendance (user_id, shift_date, clock_in_time, clock_out_time, status, permit_reason, manual_salary) VALUES (?, ?, ?, ?, ?, ?, 0)`, userID, time.Now().Format("2006-01-02"), time.Now(), time.Now(), stat, r.FormValue("reason"))
+	database.DB.Exec(database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, clock_in_time, clock_out_time, status, permit_reason, manual_salary) VALUES (?, ?, ?, ?, ?, ?, 0)`), userID, time.Now().Format("2006-01-02"), time.Now(), time.Now(), stat, r.FormValue("reason"))
 	jsonResponse(w, true, "Izin Terkirim. Semoga lancar!", "")
 }
 
@@ -271,7 +271,7 @@ func handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 	var userID int
 	var role, fName, userAva string
 	var rate int64
-	if err := database.DB.QueryRow("SELECT id, role, full_name, COALESCE(avatar_url, ''), hourly_rate FROM users WHERE username = ?", c.Value).Scan(&userID, &role, &fName, &userAva, &rate); err != nil || role != "owner" {
+	if err := database.DB.QueryRow(database.AdaptQuery("SELECT id, role, full_name, COALESCE(avatar_url, ''), hourly_rate FROM users WHERE username = ?"), c.Value).Scan(&userID, &role, &fName, &userAva, &rate); err != nil || role != "owner" {
 		http.Error(w, "Access Denied", http.StatusForbidden)
 		return
 	}
@@ -279,7 +279,7 @@ func handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		userAva = "https://api.dicebear.com/7.x/adventurer/svg?seed=owner"
 	}
 
-	rows, _ := database.DB.Query(`SELECT u.full_name, COALESCE(u.avatar_url, ''), a.clock_in_time FROM attendance a JOIN users u ON a.user_id = u.id WHERE a.clock_out_time IS NULL`)
+	rows, _ := database.DB.Query(database.AdaptQuery(`SELECT u.full_name, COALESCE(u.avatar_url, ''), a.clock_in_time FROM attendance a JOIN users u ON a.user_id = u.id WHERE a.clock_out_time IS NULL`))
 	var live []WorkerData
 	for rows.Next() {
 		var n, av string
@@ -298,7 +298,7 @@ func handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		end = time.Now().Format("2006-01-02")
 	}
 
-	hRows, _ := database.DB.Query(`SELECT a.id, u.full_name, COALESCE(u.phone_number, '-'), COALESCE(u.avatar_url, ''), u.hourly_rate, a.shift_date, a.clock_in_time, a.clock_out_time, a.is_late, a.penalty_hours, a.compensation_hours, COALESCE(a.manual_salary, 0), COALESCE(a.status, ''), COALESCE(a.permit_reason, '-') FROM attendance a JOIN users u ON a.user_id = u.id WHERE a.clock_out_time IS NOT NULL AND a.shift_date BETWEEN ? AND ? ORDER BY a.clock_in_time DESC`, start, end)
+	hRows, _ := database.DB.Query(database.AdaptQuery(`SELECT a.id, u.full_name, COALESCE(u.phone_number, '-'), COALESCE(u.avatar_url, ''), u.hourly_rate, a.shift_date, a.clock_in_time, a.clock_out_time, a.is_late, a.penalty_hours, a.compensation_hours, COALESCE(a.manual_salary, 0), COALESCE(a.status, ''), COALESCE(a.permit_reason, '-') FROM attendance a JOIN users u ON a.user_id = u.id WHERE a.clock_out_time IS NOT NULL AND a.shift_date BETWEEN ? AND ? ORDER BY a.clock_in_time DESC`), start, end)
 	var hist []HistoryData
 	var totSal int64
 	for hRows.Next() {
@@ -354,7 +354,7 @@ func handleAdminResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	c, _ := r.Cookie("user_session")
 	var role string
-	database.DB.QueryRow("SELECT role FROM users WHERE username = ?", c.Value).Scan(&role)
+	database.DB.QueryRow(database.AdaptQuery("SELECT role FROM users WHERE username = ?"), c.Value).Scan(&role)
 	if role != "owner" {
 		jsonResponse(w, false, "Denied", "")
 		return
@@ -363,7 +363,7 @@ func handleAdminResetPassword(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, false, "Empty", "")
 		return
 	}
-	database.DB.Exec("UPDATE users SET password = ? WHERE id = ?", r.FormValue("password"), r.FormValue("id"))
+	database.DB.Exec(database.AdaptQuery("UPDATE users SET password = ? WHERE id = ?"), r.FormValue("password"), r.FormValue("id"))
 	jsonResponse(w, true, "Success", "")
 }
 
@@ -373,13 +373,13 @@ func handleAdminDeleteLog(w http.ResponseWriter, r *http.Request) {
 	}
 	c, _ := r.Cookie("user_session")
 	var role string
-	database.DB.QueryRow("SELECT role FROM users WHERE username = ?", c.Value).Scan(&role)
+	database.DB.QueryRow(database.AdaptQuery("SELECT role FROM users WHERE username = ?"), c.Value).Scan(&role)
 	if role != "owner" {
 		jsonResponse(w, false, "Denied", "")
 		return
 	}
 
-	_, err := database.DB.Exec("DELETE FROM attendance WHERE id = ?", r.FormValue("id"))
+	_, err := database.DB.Exec(database.AdaptQuery("DELETE FROM attendance WHERE id = ?"), r.FormValue("id"))
 	if err != nil {
 		jsonResponse(w, false, "Error", "")
 		return
@@ -390,14 +390,14 @@ func handleAdminDeleteLog(w http.ResponseWriter, r *http.Request) {
 func handleAdminUpdateRate(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		n, _ := strconv.Atoi(r.FormValue("rate"))
-		database.DB.Exec("UPDATE users SET hourly_rate = ?", n)
+		database.DB.Exec(database.AdaptQuery("UPDATE users SET hourly_rate = ?"), n)
 		jsonResponse(w, true, "Updated", "")
 	}
 }
 func handleAdminUpdateLogSalary(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		n, _ := strconv.Atoi(r.FormValue("salary"))
-		database.DB.Exec("UPDATE attendance SET manual_salary = ? WHERE id = ?", n, r.FormValue("id"))
+		database.DB.Exec(database.AdaptQuery("UPDATE attendance SET manual_salary = ? WHERE id = ?"), n, r.FormValue("id"))
 		jsonResponse(w, true, "Updated", "")
 	}
 }
