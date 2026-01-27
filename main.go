@@ -116,6 +116,7 @@ func handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	err := database.DB.QueryRow("SELECT password, role FROM users WHERE username = ?", username).Scan(&dbPass, &role)
 
 	if err == sql.ErrNoRows || dbPass != password {
+		log.Printf("❌ Login Failed for user '%s'. DB Error: %v. Password Match: %v", username, err, dbPass == password)
 		http.Redirect(w, r, "/?error=1", http.StatusSeeOther)
 		return
 	}
@@ -142,6 +143,7 @@ func handleRegisterPost(w http.ResponseWriter, r *http.Request) {
 	_, err := database.DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, 'employee', 10000, ?, ?)", username, password, fullname, phone, avatarURL)
 
 	if err != nil {
+		log.Printf("❌ Register Failed for user '%s'. Error: %v", username, err)
 		http.Redirect(w, r, "/?error=register_fail", http.StatusSeeOther)
 		return
 	}
