@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -51,20 +52,7 @@ type HistoryData struct {
 // SEED DUMMY DATA
 // ---------------------------------------------------------
 func seedDummyData() {
-	// Cek apakah sudah ada user selain owner/manajer
-	var count int
-	err := database.DB.QueryRow(database.AdaptQuery("SELECT COUNT(*) FROM users WHERE role = 'employee'")).Scan(&count)
-	if err != nil {
-		log.Println("⚠️ Error checking employee count:", err)
-		return
-	}
-
-	if count > 0 {
-		log.Printf("ℹ️ Sudah ada %d karyawan, skip seed data\n", count)
-		return
-	}
-
-	log.Println("🌱 Seeding dummy data...")
+	log.Println("🌱 Checking dummy data...")
 
 	// 4 Dummy employees
 	employees := []struct {
@@ -81,18 +69,33 @@ func seedDummyData() {
 		{"rina", "rina123", "Rina Agustin", "081234567893", 12500, "https://api.dicebear.com/7.x/adventurer/svg?seed=rina&backgroundColor=ffd8be"},
 	}
 
-	// Insert employees
+	// Insert employees jika belum ada
+	var createdEmployees []int64
 	for _, emp := range employees {
-		result, err := database.DB.Exec(
-			database.AdaptQuery("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, 'employee', ?, ?, ?)"),
-			emp.Username, emp.Password, emp.FullName, emp.HourlyRate, emp.Phone, emp.AvatarURL,
-		)
-		if err != nil {
-			log.Printf("⚠️ Skip %s: %v", emp.FullName, err)
-			continue
+		var existingID int
+		err := database.DB.QueryRow(database.AdaptQuery("SELECT id FROM users WHERE username = ?"), emp.Username).Scan(&existingID)
+
+		if err == sql.ErrNoRows {
+			result, err := database.DB.Exec(
+				database.AdaptQuery("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, 'employee', ?, ?, ?)"),
+				emp.Username, emp.Password, emp.FullName, emp.HourlyRate, emp.Phone, emp.AvatarURL,
+			)
+			if err != nil {
+				log.Printf("⚠️ Skip %s: %v", emp.FullName, err)
+				continue
+			}
+			userID, _ := result.LastInsertId()
+			createdEmployees = append(createdEmployees, userID)
+			log.Printf("✅ Created: %s (ID: %d)", emp.FullName, userID)
+		} else {
+			log.Printf("ℹ️ User %s already exists (ID: %d)", emp.FullName, existingID)
+			createdEmployees = append(createdEmployees, int64(existingID))
 		}
-		userID, _ := result.LastInsertId()
-		log.Printf("✅ Created: %s (ID: %d)", emp.FullName, userID)
+	}
+
+	if len(createdEmployees) == 0 {
+		log.Println("⚠️ No employees to seed attendance")
+		return
 	}
 
 	// Generate attendance data dari 1 Jan 2026
@@ -100,15 +103,25 @@ func seedDummyData() {
 	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.Local)
 	endDate := time.Now()
 
-	// Get employee IDs
+	// Get all employee IDs
 	rows, _ := database.DB.Query(database.AdaptQuery("SELECT id FROM users WHERE role = 'employee'"))
-	var employeeIDs []int
+	var employeeIDs []int64
 	for rows.Next() {
-		var id int
+		var id int64
 		rows.Scan(&id)
 		employeeIDs = append(employeeIDs, id)
 	}
 	rows.Close()
+
+	if len(employeeIDs) == 0 {
+		log.Println("⚠️ No employee IDs found")
+		return
+	}
+
+	log.Printf("👥 Seeding attendance for %d employees", len(employeeIDs))
+
+	// Use math/rand for better randomness
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	totalInserted := 0
 	for d := startDate; d.Before(endDate) || d.Equal(endDate); d = d.AddDate(0, 0, 1) {
@@ -117,23 +130,59 @@ func seedDummyData() {
 		}
 
 		for _, empID := range employeeIDs {
-			// 85% hadir, 10% izin, 5% sakit
-			rand := time.Now().UnixNano() % 100
+			// Check if attendance already exists
+			var existingID int
+			err := database.DB.QueryRow(
+				database.AdaptQuery("SELECT id FROM attendance WHERE user_id = ? AND shift_date = ?"),
+				empID, d.Format("2006-01-02"),
+			).Scan(&existingID)
 
-			if rand < 85 {
-				// Hadir
-				clockInHour := 8
-				if rand%10 < 3 {
-					clockInHour = 13 // 30% sore
+			if err != sql.ErrNoRows {
+				continue // Attendance already exists
+			}
+
+			// Random attendance: 85% hadir, 10% izin, 5% sakit
+			randomChance := rnd.Float64()
+
+			if randomChance < 0.85 {
+				// Hadir - generate realistic shift
+				var clockInHour, clockOutHour int
+				shiftChoice := rnd.Float64()
+
+				if shiftChoice < 0.6 {
+					// 60% Shift Pagi (08:00 - 16:00)
+					clockInHour = 8
+					clockOutHour = 16
+				} else if shiftChoice < 0.9 {
+					// 30% Shift Sore (13:00 - 21:00)
+					clockInHour = 13
+					clockOutHour = 21
+				} else {
+					// 10% Shift Malam (19:00 - 03:00)
+					clockInHour = 19
+					clockOutHour = 3
 				}
-				clockInMinute := int(time.Now().UnixNano()%45) - 15
+
+				// Add randomness to clock in (-10 to +30 minutes)
+				clockInMinute := rnd.Intn(40) - 10
 				if clockInMinute < 0 {
 					clockInMinute = 0
 				}
 
-				clockInTime := time.Date(d.Year(), d.Month(), d.Day(), clockInHour, clockInMinute, 0, 0, time.Local)
-				clockOutTime := clockInTime.Add(8 * time.Hour).Add(time.Duration(clockInMinute) * time.Minute)
+				// Clock out with slight variation (0-20 minutes)
+				clockOutMinute := rnd.Intn(20)
 
+				clockInTime := time.Date(d.Year(), d.Month(), d.Day(), clockInHour, clockInMinute, 0, 0, time.Local)
+
+				var clockOutTime time.Time
+				if clockOutHour < clockInHour {
+					// Overnight shift
+					clockOutTime = time.Date(d.Year(), d.Month(), d.Day()+1, clockOutHour, clockOutMinute, 0, 0, time.Local)
+				} else {
+					clockOutTime = time.Date(d.Year(), d.Month(), d.Day(), clockOutHour, clockOutMinute, 0, 0, time.Local)
+				}
+
+				// Determine if late (> 15 minutes after scheduled time)
 				scheduledTime := time.Date(d.Year(), d.Month(), d.Day(), clockInHour, 0, 0, 0, time.Local)
 				isLate := clockInTime.After(scheduledTime.Add(15 * time.Minute))
 
@@ -147,36 +196,53 @@ func seedDummyData() {
 					}
 				}
 
+				// 15% chance of overtime
 				var compensationHours int64
-				if rand%10 == 0 {
-					compensationHours = 1 // 10% dapat overtime
+				if rnd.Float64() < 0.15 {
+					compensationHours = int64(rnd.Intn(3) + 1) // 1-3 hours
 				}
 
-				database.DB.Exec(
+				_, err := database.DB.Exec(
 					database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, clock_in_time, clock_out_time, status, is_late, penalty_hours, compensation_hours, is_auto_closed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-					empID, d.Format("2006-01-02"), clockInTime.Format("2006-01-02 15:04:05"), clockOutTime.Format("2006-01-02 15:04:05"), "", isLate, penaltyHours, compensationHours, false,
+					empID, d.Format("2006-01-02"),
+					clockInTime.Format("2006-01-02 15:04:05"),
+					clockOutTime.Format("2006-01-02 15:04:05"),
+					"", isLate, penaltyHours, compensationHours, false,
 				)
-				totalInserted++
+				if err == nil {
+					totalInserted++
+				}
 
-			} else if rand < 95 {
+			} else if randomChance < 0.95 {
 				// Izin
-				database.DB.Exec(
+				reasons := []string{"Urusan keluarga", "Keperluan pribadi", "Acara penting", "Izin dokter"}
+				reason := reasons[rnd.Intn(len(reasons))]
+
+				_, err := database.DB.Exec(
 					database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, status, permit_reason) VALUES (?, ?, ?, ?)`),
-					empID, d.Format("2006-01-02"), "IZIN: Keperluan pribadi", "Keperluan pribadi",
+					empID, d.Format("2006-01-02"), "IZIN: "+reason, reason,
 				)
-				totalInserted++
+				if err == nil {
+					totalInserted++
+				}
+
 			} else {
 				// Sakit
-				database.DB.Exec(
+				reasons := []string{"Flu", "Demam", "Sakit kepala", "Masuk angin"}
+				reason := reasons[rnd.Intn(len(reasons))]
+
+				_, err := database.DB.Exec(
 					database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, status, permit_reason) VALUES (?, ?, ?, ?)`),
-					empID, d.Format("2006-01-02"), "SAKIT: Flu", "Flu",
+					empID, d.Format("2006-01-02"), "SAKIT: "+reason, reason,
 				)
-				totalInserted++
+				if err == nil {
+					totalInserted++
+				}
 			}
 		}
 	}
 
-	log.Printf("✅ Seed complete: %d attendance records\n", totalInserted)
+	log.Printf("✅ Seed complete: %d attendance records inserted\n", totalInserted)
 }
 
 // ---------------------------------------------------------

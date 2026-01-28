@@ -48,32 +48,90 @@
         async function checkActiveShift() {
             try {
                 const response = await fetch('/api/active_shift');
-                if (!response.ok) throw new Error('Network error');
+                if (!response.ok) {
+                    console.log('API response not ok');
+                    enableAllShifts(); // Enable all shifts jika API error
+                    return;
+                }
                 const data = await response.json();
+                console.log('Active shift data:', data);
+                
                 const activeShift = data.active_shift;
                 
-                if (activeShift === 'long_pagi') {
+                if (!activeShift || activeShift === '') {
+                    // Tidak ada shift aktif - enable semua
+                    enableAllShifts();
+                } else if (activeShift === 'long_pagi') {
                     // Jika long pagi aktif, disable semua kecuali long sore
                     document.querySelectorAll('.sb[data-shift="normal"]').forEach(btn => {
                         btn.disabled = true;
-                        btn.classList.add('opacity-30', 'cursor-not-allowed');
+                        btn.classList.add('opacity-30', 'cursor-not-allowed', 'grayscale');
+                        btn.classList.remove('opacity-60');
+                        const originalOnclick = btn.getAttribute('onclick');
+                        btn.setAttribute('data-original-onclick', originalOnclick);
                         btn.onclick = null;
                     });
-                    document.getElementById('blp').disabled = true;
-                    document.getElementById('blp').classList.add('opacity-30', 'cursor-not-allowed');
-                    document.getElementById('blp').onclick = null;
+                    const blpBtn = document.getElementById('blp');
+                    if (blpBtn) {
+                        blpBtn.disabled = true;
+                        blpBtn.classList.add('opacity-30', 'cursor-not-allowed', 'grayscale');
+                        blpBtn.classList.remove('opacity-60');
+                        const originalOnclick = blpBtn.getAttribute('onclick');
+                        blpBtn.setAttribute('data-original-onclick', originalOnclick);
+                        blpBtn.onclick = null;
+                    }
+                    // Enable long sore button
+                    const blsBtn = document.getElementById('bls');
+                    if (blsBtn) {
+                        blsBtn.disabled = false;
+                        blsBtn.classList.remove('opacity-30', 'opacity-60', 'cursor-not-allowed');
+                        blsBtn.classList.add('opacity-100');
+                    }
                 } else if (activeShift === 'long_sore') {
                     // Jika long sore aktif, disable semua
                     document.querySelectorAll('.sb').forEach(btn => {
                         btn.disabled = true;
-                        btn.classList.add('opacity-30', 'cursor-not-allowed');
+                        btn.classList.add('opacity-30', 'cursor-not-allowed', 'grayscale');
+                        btn.classList.remove('opacity-60', 'opacity-100');
+                        const originalOnclick = btn.getAttribute('onclick');
+                        btn.setAttribute('data-original-onclick', originalOnclick);
                         btn.onclick = null;
+                    });
+                } else {
+                    // Shift normal aktif - disable semua long shift
+                    document.querySelectorAll('.sb[data-shift="long"]').forEach(btn => {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-30', 'cursor-not-allowed', 'grayscale');
+                        btn.classList.remove('opacity-60');
+                        const originalOnclick = btn.getAttribute('onclick');
+                        btn.setAttribute('data-original-onclick', originalOnclick);
+                        btn.onclick = null;
+                    });
+                    // Enable normal shifts
+                    document.querySelectorAll('.sb[data-shift="normal"]').forEach(btn => {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-30', 'cursor-not-allowed');
+                        btn.classList.add('opacity-60');
                     });
                 }
             } catch (error) {
                 console.log('Error checking active shift (mungkin offline):', error);
-                // Jika offline, biarkan semua shift tetap bisa dipilih
+                // Jika offline, enable semua shift
+                enableAllShifts();
             }
+        }
+        
+        function enableAllShifts() {
+            console.log('Enabling all shift buttons');
+            document.querySelectorAll('.sb').forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('opacity-30', 'cursor-not-allowed');
+                btn.classList.add('opacity-60', 'grayscale');
+                const originalOnclick = btn.getAttribute('data-original-onclick');
+                if (originalOnclick) {
+                    btn.setAttribute('onclick', originalOnclick);
+                }
+            });
         }
         
         // Offline/Online Detection
