@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <title>Laporan - DhenPresence</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/assets/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        
+        .tab-button.active {
+            background: #064e3b;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .sub-tab {
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .sub-tab.active {
+            border-bottom-color: #064e3b;
+            color: #064e3b;
+            font-weight: 800;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .premium-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.03);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin: 20px 0;
+        }
+        
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #064e3b;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen pb-20">
+    <!-- Navigation -->
+    <nav class="bg-[#064e3b] text-white p-4 shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <img src="{{.UserAvatar}}" class="w-10 h-10 rounded-full border-2 border-green-400 bg-white">
+                <div>
+                    <h1 class="font-bold text-lg tracking-wider leading-none">LAPORAN DHEN</h1>
+                    <p class="text-[10px] text-green-200">Halo, {{.UserFullName}}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/admin" class="text-xs bg-green-700/50 hover:bg-green-600 px-3 py-1.5 rounded-lg transition">
+                    <i class="fa-solid fa-arrow-left"></i> Kembali ke Dashboard
+                </a>
+                <a href="/logout" class="text-xs bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-4 space-y-6">
+        <!-- Sub Tabs -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-2 flex gap-2">
+            <button onclick="switchTab('individual')" id="tab-individual" class="sub-tab active flex-1 py-3 px-4 rounded-xl font-bold text-sm">
+                <i class="fa-solid fa-user-tie mr-2"></i> Laporan Gaji Individu
+            </button>
+            <button onclick="switchTab('activity')" id="tab-activity" class="sub-tab flex-1 py-3 px-4 rounded-xl font-bold text-sm text-gray-500">
+                <i class="fa-solid fa-chart-line mr-2"></i> Report Aktivitas
+            </button>
+        </div>
+
+        <!-- TAB 1: LAPORAN GAJI INDIVIDU -->
+        <div id="content-individual" class="tab-content">
+            <div class="premium-card p-6">
+                <h2 class="text-2xl font-black text-gray-800 mb-6">
+                    <i class="fa-solid fa-file-invoice-dollar text-green-700 mr-2"></i> Laporan Gaji Perorangan
+                </h2>
+                
+                <!-- Filter -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="md:col-span-1">
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-2">Pilih Karyawan</label>
+                        <select id="employeeSelect" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 outline-none">
+                            <option value="">-- Pilih Karyawan --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-2">Dari Tanggal</label>
+                        <input type="date" id="salaryStartDate" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-2">Sampai Tanggal</label>
+                        <input type="date" id="salaryEndDate" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 outline-none">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="generateSalaryReport()" class="w-full py-3 bg-gradient-to-r from-green-700 to-green-600 text-white rounded-xl font-bold hover:from-green-800 hover:to-green-700 shadow-lg hover:shadow-xl transition">
+                            <i class="fa-solid fa-rocket mr-2"></i> GENERATE LAPORAN
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="salaryLoading" class="hidden flex flex-col items-center justify-center py-20">
+                    <div class="loading-spinner"></div>
+                    <p class="text-gray-500 mt-4 text-sm">Memproses data...</p>
+                </div>
+
+                <!-- Report Result -->
+                <div id="salaryReport" class="hidden space-y-6">
+                    <!-- Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="stat-card p-6 rounded-2xl">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-xs font-bold text-gray-600 uppercase">Total Hari Kerja</p>
+                                <i class="fa-solid fa-calendar-days text-2xl text-gray-400 opacity-50"></i>
+                            </div>
+                            <p id="totalDays" class="text-3xl font-black text-gray-800">0</p>
+                            <p class="text-xs text-gray-500 mt-1">hari hadir</p>
+                        </div>
+                        <div class="stat-card p-6 rounded-2xl">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-xs font-bold text-gray-600 uppercase">Jam Kerja Efektif</p>
+                                <i class="fa-solid fa-clock text-2xl text-gray-400 opacity-50"></i>
+                            </div>
+                            <p id="totalHours" class="text-3xl font-black text-gray-800">0</p>
+                            <p class="text-xs text-gray-500 mt-1">jam</p>
+                        </div>
+                        <div class="stat-card p-6 rounded-2xl">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-xs font-bold text-gray-600 uppercase">Attendance Rate</p>
+                                <i class="fa-solid fa-percentage text-2xl text-gray-400 opacity-50"></i>
+                            </div>
+                            <p id="attendanceRate" class="text-3xl font-black text-gray-800">0%</p>
+                            <p class="text-xs text-gray-500 mt-1">kehadiran</p>
+                        </div>
+                        <div class="stat-card p-6 rounded-2xl bg-gradient-to-br from-green-600 to-green-700">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-xs font-bold text-green-100 uppercase">Gaji Bersih</p>
+                                <i class="fa-solid fa-money-bill-wave text-2xl text-white opacity-50"></i>
+                            </div>
+                            <p id="netSalary" class="text-3xl font-black text-white">Rp 0</p>
+                            <p class="text-xs text-green-200 mt-1">sudah dipotong penalty</p>
+                        </div>
+                    </div>
+
+                    <!-- Employee Info -->
+                    <div class="premium-card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
+                            <i class="fa-solid fa-user-circle text-green-700 mr-2"></i> Informasi Karyawan
+                        </h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Nama Lengkap</p>
+                                <p id="empName" class="font-bold text-gray-800">-</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold mb-1">No. Telepon</p>
+                                <p id="empPhone" class="font-bold text-gray-800">-</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Tarif Per Jam</p>
+                                <p id="empRate" class="font-bold text-gray-800">Rp 0</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Periode Laporan</p>
+                                <p id="reportPeriod" class="font-bold text-gray-800">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Attendance Statistics -->
+                    <div class="premium-card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
+                            <i class="fa-solid fa-chart-pie text-green-700 mr-2"></i> Statistik Kehadiran
+                        </h3>
+                        <div class="chart-container">
+                            <canvas id="attendanceChart"></canvas>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                            <div class="flex items-center gap-2 bg-green-50 p-3 rounded-lg">
+                                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Tepat Waktu</p>
+                                    <p id="onTimeCount" class="font-bold text-gray-800">0</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 bg-red-50 p-3 rounded-lg">
+                                <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Telat</p>
+                                    <p id="lateCount" class="font-bold text-gray-800">0</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 bg-yellow-50 p-3 rounded-lg">
+                                <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Izin</p>
+                                    <p id="permitCount" class="font-bold text-gray-800">0</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 bg-blue-50 p-3 rounded-lg">
+                                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Sakit</p>
+                                    <p id="sickCount" class="font-bold text-gray-800">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Salary Breakdown -->
+                    <div class="premium-card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
+                            <i class="fa-solid fa-calculator text-green-700 mr-2"></i> Perhitungan Gaji
+                        </h3>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <span class="text-gray-600">Gaji Bruto (Jam Kerja × Tarif)</span>
+                                <span id="grossSalary" class="font-bold text-gray-800">Rp 0</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                                <span class="text-gray-600">Potongan Penalty Keterlambatan</span>
+                                <span id="penaltyCut" class="font-bold text-red-600">- Rp 0</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                                <span class="text-gray-600">Bonus Lembur / Kompensasi</span>
+                                <span id="bonusAdd" class="font-bold text-green-600">+ Rp 0</span>
+                            </div>
+                            <div class="flex justify-between items-center p-4 bg-gradient-to-r from-green-600 to-green-700 rounded-xl text-white font-bold text-lg">
+                                <span>GAJI BERSIH</span>
+                                <span id="finalSalary">Rp 0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Daily Details Table -->
+                    <div class="premium-card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
+                            <i class="fa-solid fa-table text-green-700 mr-2"></i> Detail Harian
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm" id="salaryDetailTable">
+                                <thead class="bg-gray-50">
+                                    <tr class="text-xs font-bold text-gray-600 uppercase">
+                                        <th class="px-4 py-3 text-left">Tanggal</th>
+                                        <th class="px-4 py-3 text-left">Shift</th>
+                                        <th class="px-4 py-3 text-left">Clock In</th>
+                                        <th class="px-4 py-3 text-left">Clock Out</th>
+                                        <th class="px-4 py-3 text-right">Jam Kerja</th>
+                                        <th class="px-4 py-3 text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salaryTableBody" class="divide-y">
+                                    <!-- Dynamic content -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Export Buttons -->
+                    <div class="flex gap-3 no-print">
+                        <button onclick="exportSalaryPDF()" class="flex-1 py-4 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg transition">
+                            <i class="fa-solid fa-file-pdf mr-2"></i> Export PDF
+                        </button>
+                        <button onclick="exportSalaryExcel()" class="flex-1 py-4 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 shadow-lg transition">
+                            <i class="fa-solid fa-file-excel mr-2"></i> Export Excel
+                        </button>
+                        <button onclick="window.print()" class="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition">
+                            <i class="fa-solid fa-print mr-2"></i> Print / Save as PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: REPORT AKTIVITAS -->
+        <div id="content-activity" class="tab-content hidden">
+            <div class="premium-card p-6">
+                <h2 class="text-2xl font-black text-gray-800 mb-6">
+                    <i class="fa-solid fa-chart-column text-green-700 mr-2"></i> Report Aktivitas Pekerjaan
+                </h2>
+                
+                <!-- Filter -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-2">Dari Tanggal</label>
+                        <input type="date" id="activityStartDate" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-2">Sampai Tanggal</label>
+                        <input type="date" id="activityEndDate" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 outline-none">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="generateActivityReport()" class="w-full py-3 bg-gradient-to-r from-blue-700 to-blue-600 text-white rounded-xl font-bold hover:from-blue-800 hover:to-blue-700 shadow-lg hover:shadow-xl transition">
+                            <i class="fa-solid fa-chart-simple mr-2"></i> GENERATE
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="activityLoading" class="hidden flex flex-col items-center justify-center py-20">
+                    <div class="loading-spinner"></div>
+                    <p class="text-gray-500 mt-4 text-sm">Memproses data...</p>
+                </div>
+
+                <!-- Report Result -->
+                <div id="activityReport" class="hidden space-y-6">
+                    <!-- Overview Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="stat-card p-6 rounded-2xl">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-xs font-bold text-gray-600 uppercase">Total Kehadiran</p>
+                                <i class="fa-solid fa-users text-2xl text-gray-400 opacity-50"></i>
+                            </div>
+                            <p id="actTotalAttendance" class="text-3xl font-black text-gray-800">0</p>
+                            <p class="text-xs text-gray-500 mt-1"><span id="actHadir">0</span> hadir • <span id="actIzin">0</span> izin • <span id="actSakit">0</span> sakit</p>
+                        </div>
+                        <div class="stat-card p-6 rounded-2xl">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-xs font-bold text-gray-600 uppercase">Total Jam Kerja</p>
+                                <i class="fa-solid fa-business-time text-2xl text-gray-400 opacity-50"></i>
+                            </div>
+                            <p id="actTotalHours" class="text-3xl font-black text-gray-800">0</p>
+                            <p class="text-xs text-gray-500 mt-1">rata-rata <span id="actAvgHours">0</span> jam/hari</p>
+                        </div>
+                        <div class="stat-card p-6 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-xs font-bold text-blue-100 uppercase">Total Gaji</p>
+                                <i class="fa-solid fa-wallet text-2xl text-white opacity-50"></i>
+                            </div>
+                            <p id="actTotalSalary" class="text-3xl font-black text-white">Rp 0</p>
+                            <p class="text-xs text-blue-200 mt-1">total payroll periode ini</p>
+                        </div>
+                    </div>
+
+                    <!-- Attendance Chart -->
+                    <div class="premium-card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
+                            <i class="fa-solid fa-chart-bar text-green-700 mr-2"></i> Grafik Kehadiran Harian
+                        </h3>
+                        <div class="chart-container">
+                            <canvas id="attendanceTrendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Employee Ranking -->
+                    <div class="premium-card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
+                            <i class="fa-solid fa-trophy text-yellow-500 mr-2"></i> Ranking Karyawan (by Attendance %)
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr class="text-xs font-bold text-gray-600 uppercase">
+                                        <th class="px-4 py-3 text-center">#</th>
+                                        <th class="px-4 py-3 text-left">Nama</th>
+                                        <th class="px-4 py-3 text-center">Hadir</th>
+                                        <th class="px-4 py-3 text-center">Attendance %</th>
+                                        <th class="px-4 py-3 text-right">Jam Kerja</th>
+                                        <th class="px-4 py-3 text-right">Gaji</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rankingTableBody" class="divide-y">
+                                    <!-- Dynamic content -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Daily Activity Details -->
+                    <div class="premium-card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
+                            <i class="fa-solid fa-calendar-days text-green-700 mr-2"></i> Detail Harian
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr class="text-xs font-bold text-gray-600 uppercase">
+                                        <th class="px-4 py-3 text-left">Tanggal</th>
+                                        <th class="px-4 py-3 text-center">Karyawan Masuk</th>
+                                        <th class="px-4 py-3 text-center">Total Hadir</th>
+                                        <th class="px-4 py-3 text-right">Total Jam Kerja</th>
+                                        <th class="px-4 py-3 text-center">Catatan</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dailyActivityBody" class="divide-y">
+                                    <!-- Dynamic content -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Insights & Alerts -->
+                    <div class="premium-card p-6 bg-amber-50 border-amber-200">
+                        <h3 class="text-lg font-bold text-amber-800 mb-4 border-b border-amber-200 pb-2">
+                            <i class="fa-solid fa-lightbulb text-yellow-500 mr-2"></i> Insight & Alert
+                        </h3>
+                        <div id="insightsContent" class="space-y-2 text-sm">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+
+                    <!-- Export Buttons -->
+                    <div class="flex gap-3 no-print">
+                        <button onclick="exportActivityPDF()" class="flex-1 py-4 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg transition">
+                            <i class="fa-solid fa-file-pdf mr-2"></i> Export PDF
+                        </button>
+                        <button onclick="exportActivityExcel()" class="flex-1 py-4 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 shadow-lg transition">
+                            <i class="fa-solid fa-file-excel mr-2"></i> Export Excel
+                        </button>
+                        <button onclick="window.print()" class="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition">
+                            <i class="fa-solid fa-print mr-2"></i> Print / Save as PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let attendanceChartInstance = null;
+        let attendanceTrendChartInstance = null;
+        let currentSalaryData = null;
+        let currentActivityData = null;
+
+        // Initialize default dates (last 30 days)
+        window.onload = function() {
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+            
+            const formatDate = (date) => date.toISOString().split('T')[0];
+            
+            document.getElementById('salaryStartDate').value = formatDate(thirtyDaysAgo);
+            document.getElementById('salaryEndDate').value = formatDate(today);
+            document.getElementById('activityStartDate').value = formatDate(thirtyDaysAgo);
+            document.getElementById('activityEndDate').value = formatDate(today);
+            
+            loadEmployees();
+        };
+
+        // Load employees for dropdown
+        async function loadEmployees() {
+            try {
+                const res = await fetch('/api/employees');
+                const data = await res.json();
+                const select = document.getElementById('employeeSelect');
+                data.employees.forEach(emp => {
+                    const option = document.createElement('option');
+                    option.value = emp.id;
+                    option.textContent = emp.full_name;
+                    select.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Error loading employees:', err);
+            }
+        }
+
+        // Switch tabs
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.sub-tab').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.sub-tab').forEach(btn => btn.classList.add('text-gray-500'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.remove('text-gray-500');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+        }
+
+        // Generate Salary Report
+        async function generateSalaryReport() {
+            const employeeId = document.getElementById('employeeSelect').value;
+            const startDate = document.getElementById('salaryStartDate').value;
+            const endDate = document.getElementById('salaryEndDate').value;
+            
+            if (!employeeId) {
+                alert('Pilih karyawan terlebih dahulu!');
+                return;
+            }
+            
+            if (!startDate || !endDate) {
+                alert('Pilih range tanggal!');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('salaryReport').classList.add('hidden');
+            document.getElementById('salaryLoading').classList.remove('hidden');
+            
+            try {
+                const res = await fetch(`/api/salary_report?user_id=${employeeId}&start=${startDate}&end=${endDate}`);
+                const data = await res.json();
+                
+                if (!data.success) {
+                    alert('Error: ' + data.message);
+                    return;
+                }
+                
+                currentSalaryData = data;
+                renderSalaryReport(data);
+                
+                // Hide loading, show report
+                document.getElementById('salaryLoading').classList.add('hidden');
+                document.getElementById('salaryReport').classList.remove('hidden');
+            } catch (err) {
+                console.error('Error:', err);
+                alert('Gagal memuat data. Coba lagi!');
+                document.getElementById('salaryLoading').classList.add('hidden');
+            }
+        }
+
+        // Render Salary Report
+        function renderSalaryReport(data) {
+            // Summary cards
+            document.getElementById('totalDays').textContent = data.summary.total_days;
+            document.getElementById('totalHours').textContent = data.summary.total_hours.toFixed(1);
+            document.getElementById('attendanceRate').textContent = data.summary.attendance_rate + '%';
+            document.getElementById('netSalary').textContent = formatRupiah(data.summary.net_salary);
+            
+            // Employee info
+            document.getElementById('empName').textContent = data.employee.full_name;
+            document.getElementById('empPhone').textContent = data.employee.phone_number;
+            document.getElementById('empRate').textContent = formatRupiah(data.employee.hourly_rate) + '/jam';
+            document.getElementById('reportPeriod').textContent = data.period;
+            
+            // Attendance stats
+            document.getElementById('onTimeCount').textContent = data.summary.on_time_count + ' hari';
+            document.getElementById('lateCount').textContent = data.summary.late_count + ' hari';
+            document.getElementById('permitCount').textContent = data.summary.permit_count + ' hari';
+            document.getElementById('sickCount').textContent = data.summary.sick_count + ' hari';
+            
+            // Render pie chart
+            renderAttendanceChart(data.summary);
+            
+            // Salary breakdown
+            document.getElementById('grossSalary').textContent = formatRupiah(data.summary.gross_salary);
+            document.getElementById('penaltyCut').textContent = '- ' + formatRupiah(data.summary.penalty_amount);
+            document.getElementById('bonusAdd').textContent = '+ ' + formatRupiah(data.summary.bonus_amount);
+            document.getElementById('finalSalary').textContent = formatRupiah(data.summary.net_salary);
+            
+            // Daily details table
+            renderSalaryTable(data.details);
+        }
+
+        // Render Attendance Pie Chart
+        function renderAttendanceChart(summary) {
+            const ctx = document.getElementById('attendanceChart');
+            
+            // Destroy previous chart
+            if (attendanceChartInstance) {
+                attendanceChartInstance.destroy();
+            }
+            
+            attendanceChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Tepat Waktu', 'Telat', 'Izin', 'Sakit'],
+                    datasets: [{
+                        data: [summary.on_time_count, summary.late_count, summary.permit_count, summary.sick_count],
+                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#3b82f6'],
+                        borderWidth: 3,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { size: 14, weight: 'bold' },
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed + ' hari';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render Salary Table
+        function renderSalaryTable(details) {
+            const tbody = document.getElementById('salaryTableBody');
+            tbody.innerHTML = '';
+            
+            details.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.classList.add('hover:bg-gray-50');
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-mono text-xs">${row.date}</td>
+                    <td class="px-4 py-3 text-xs">${row.shift || '-'}</td>
+                    <td class="px-4 py-3 text-xs font-mono">${row.clock_in || '-'}</td>
+                    <td class="px-4 py-3 text-xs font-mono">${row.clock_out || '-'}</td>
+                    <td class="px-4 py-3 text-right font-bold">${row.hours.toFixed(1)} jam</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="px-2 py-1 rounded text-xs font-bold ${getStatusClass(row.status)}">${row.status}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Generate Activity Report
+        async function generateActivityReport() {
+            const startDate = document.getElementById('activityStartDate').value;
+            const endDate = document.getElementById('activityEndDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('Pilih range tanggal!');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('activityReport').classList.add('hidden');
+            document.getElementById('activityLoading').classList.remove('hidden');
+            
+            try {
+                const res = await fetch(`/api/activity_report?start=${startDate}&end=${endDate}`);
+                const data = await res.json();
+                
+                if (!data.success) {
+                    alert('Error: ' + data.message);
+                    return;
+                }
+                
+                currentActivityData = data;
+                renderActivityReport(data);
+                
+                // Hide loading, show report
+                document.getElementById('activityLoading').classList.add('hidden');
+                document.getElementById('activityReport').classList.remove('hidden');
+            } catch (err) {
+                console.error('Error:', err);
+                alert('Gagal memuat data. Coba lagi!');
+                document.getElementById('activityLoading').classList.add('hidden');
+            }
+        }
+
+        // Render Activity Report
+        function renderActivityReport(data) {
+            // Overview cards
+            document.getElementById('actTotalAttendance').textContent = data.overview.total_attendance;
+            document.getElementById('actHadir').textContent = data.overview.present_count;
+            document.getElementById('actIzin').textContent = data.overview.permit_count;
+            document.getElementById('actSakit').textContent = data.overview.sick_count;
+            document.getElementById('actTotalHours').textContent = data.overview.total_hours.toFixed(0) + ' jam';
+            document.getElementById('actAvgHours').textContent = data.overview.avg_hours_per_day.toFixed(1);
+            document.getElementById('actTotalSalary').textContent = formatRupiah(data.overview.total_salary);
+            
+            // Attendance trend chart
+            renderAttendanceTrendChart(data.daily_stats);
+            
+            // Ranking table
+            renderRankingTable(data.rankings);
+            
+            // Daily activity table
+            renderDailyActivityTable(data.daily_stats);
+            
+            // Insights
+            renderInsights(data.insights);
+        }
+
+        // Render Attendance Trend Chart
+        function renderAttendanceTrendChart(dailyStats) {
+            const ctx = document.getElementById('attendanceTrendChart');
+            
+            // Destroy previous chart
+            if (attendanceTrendChartInstance) {
+                attendanceTrendChartInstance.destroy();
+            }
+            
+            const labels = dailyStats.map(d => d.date);
+            const attendance = dailyStats.map(d => d.employee_count);
+            
+            attendanceTrendChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Jumlah Karyawan Hadir',
+                        data: attendance,
+                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + ' orang hadir';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render Ranking Table
+        function renderRankingTable(rankings) {
+            const tbody = document.getElementById('rankingTableBody');
+            tbody.innerHTML = '';
+            
+            rankings.forEach((rank, idx) => {
+                const tr = document.createElement('tr');
+                tr.classList.add('hover:bg-gray-50');
+                
+                let medal = '';
+                if (idx === 0) medal = '🥇';
+                else if (idx === 1) medal = '🥈';
+                else if (idx === 2) medal = '🥉';
+                
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-center font-bold text-lg">${medal || (idx + 1)}</td>
+                    <td class="px-4 py-3 font-bold">${rank.full_name}</td>
+                    <td class="px-4 py-3 text-center">${rank.present_days}/${rank.total_days}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="px-3 py-1 rounded-full font-bold ${rank.attendance_rate >= 90 ? 'bg-green-100 text-green-700' : rank.attendance_rate >= 75 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">
+                            ${rank.attendance_rate}%
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono">${rank.total_hours.toFixed(1)} jam</td>
+                    <td class="px-4 py-3 text-right font-mono font-bold text-green-700">${formatRupiah(rank.total_salary)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render Daily Activity Table
+        function renderDailyActivityTable(dailyStats) {
+            const tbody = document.getElementById('dailyActivityBody');
+            tbody.innerHTML = '';
+            
+            dailyStats.forEach(day => {
+                const tr = document.createElement('tr');
+                tr.classList.add('hover:bg-gray-50');
+                
+                let note = 'Normal';
+                if (day.permit_count > 0) note = `${day.permit_count} Izin`;
+                if (day.sick_count > 0) note += (note !== 'Normal' ? ', ' : '') + `${day.sick_count} Sakit`;
+                if (day.long_shift_count > 0) note += (note !== 'Normal' ? ', ' : '') + `${day.long_shift_count} Long Shift`;
+                
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-mono text-xs">${day.date}</td>
+                    <td class="px-4 py-3 text-center font-bold">${day.employee_count} orang</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="px-2 py-1 rounded text-xs font-bold ${day.present_count >= day.employee_count * 0.8 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                            ${day.present_count}/${day.employee_count} (${day.attendance_percentage}%)
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono font-bold">${day.total_hours.toFixed(1)} jam</td>
+                    <td class="px-4 py-3 text-center text-xs text-gray-600">${note}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render Insights
+        function renderInsights(insights) {
+            const container = document.getElementById('insightsContent');
+            container.innerHTML = '';
+            
+            insights.forEach(insight => {
+                const div = document.createElement('div');
+                div.className = 'flex items-start gap-3 p-3 bg-white rounded-lg border border-amber-200';
+                div.innerHTML = `
+                    <i class="fa-solid ${insight.icon} text-amber-600 mt-1"></i>
+                    <div>
+                        <p class="font-bold text-amber-800">${insight.title}</p>
+                        <p class="text-xs text-gray-600 mt-1">${insight.message}</p>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Export functions
+        function exportSalaryPDF() {
+            if (!currentSalaryData) return alert('Generate laporan terlebih dahulu!');
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Title
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Laporan Gaji Individu', 14, 20);
+            
+            // Employee info
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Nama: ${currentSalaryData.employee.full_name}`, 14, 30);
+            doc.text(`Periode: ${currentSalaryData.period}`, 14, 35);
+            doc.text(`Tarif: ${formatRupiah(currentSalaryData.employee.hourly_rate)}/jam`, 14, 40);
+            
+            // Summary
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Ringkasan:', 14, 50);
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Total Hari Kerja: ${currentSalaryData.summary.total_days} hari`, 14, 57);
+            doc.text(`Total Jam Kerja: ${currentSalaryData.summary.total_hours.toFixed(1)} jam`, 14, 62);
+            doc.text(`Attendance Rate: ${currentSalaryData.summary.attendance_rate}%`, 14, 67);
+            
+            // Salary breakdown
+            doc.text(`Gaji Bruto: ${formatRupiah(currentSalaryData.summary.gross_salary)}`, 14, 75);
+            doc.text(`Potongan Penalty: -${formatRupiah(currentSalaryData.summary.penalty_amount)}`, 14, 80);
+            doc.text(`Bonus Lembur: +${formatRupiah(currentSalaryData.summary.bonus_amount)}`, 14, 85);
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text(`GAJI BERSIH: ${formatRupiah(currentSalaryData.summary.net_salary)}`, 14, 93);
+            
+            // Table
+            doc.autoTable({
+                startY: 100,
+                head: [['Tanggal', 'Shift', 'Clock In', 'Clock Out', 'Jam', 'Status']],
+                body: currentSalaryData.details.map(d => [
+                    d.date, d.shift || '-', d.clock_in || '-', d.clock_out || '-', 
+                    d.hours.toFixed(1), d.status
+                ]),
+                theme: 'grid',
+                styles: { fontSize: 8 }
+            });
+            
+            doc.save(`Laporan_Gaji_${currentSalaryData.employee.full_name.replace(/\s/g, '_')}.pdf`);
+        }
+
+        function exportSalaryExcel() {
+            if (!currentSalaryData) return alert('Generate laporan terlebih dahulu!');
+            
+            const ws_data = [
+                ['Laporan Gaji Individu'],
+                [],
+                ['Nama', currentSalaryData.employee.full_name],
+                ['Periode', currentSalaryData.period],
+                ['Tarif Per Jam', currentSalaryData.employee.hourly_rate],
+                [],
+                ['Total Hari Kerja', currentSalaryData.summary.total_days],
+                ['Total Jam Kerja', currentSalaryData.summary.total_hours],
+                ['Attendance Rate', currentSalaryData.summary.attendance_rate + '%'],
+                [],
+                ['Gaji Bruto', currentSalaryData.summary.gross_salary],
+                ['Potongan Penalty', -currentSalaryData.summary.penalty_amount],
+                ['Bonus Lembur', currentSalaryData.summary.bonus_amount],
+                ['GAJI BERSIH', currentSalaryData.summary.net_salary],
+                [],
+                ['Tanggal', 'Shift', 'Clock In', 'Clock Out', 'Jam Kerja', 'Status'],
+                ...currentSalaryData.details.map(d => [d.date, d.shift || '-', d.clock_in || '-', d.clock_out || '-', d.hours, d.status])
+            ];
+            
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Laporan Gaji');
+            XLSX.writeFile(wb, `Laporan_Gaji_${currentSalaryData.employee.full_name.replace(/\s/g, '_')}.xlsx`);
+        }
+
+        function exportActivityPDF() {
+            if (!currentActivityData) return alert('Generate laporan terlebih dahulu!');
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Report Aktivitas Pekerjaan', 14, 20);
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Periode: ${document.getElementById('activityStartDate').value} s/d ${document.getElementById('activityEndDate').value}`, 14, 30);
+            
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Overview:', 14, 40);
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Total Kehadiran: ${currentActivityData.overview.total_attendance}`, 14, 47);
+            doc.text(`Total Jam Kerja: ${currentActivityData.overview.total_hours.toFixed(0)} jam`, 14, 52);
+            doc.text(`Total Gaji: ${formatRupiah(currentActivityData.overview.total_salary)}`, 14, 57);
+            
+            // Rankings table
+            doc.autoTable({
+                startY: 65,
+                head: [['#', 'Nama', 'Hadir', 'Attendance %', 'Jam Kerja', 'Gaji']],
+                body: currentActivityData.rankings.map((r, i) => [
+                    i + 1, r.full_name, `${r.present_days}/${r.total_days}`, 
+                    r.attendance_rate + '%', r.total_hours.toFixed(1), formatRupiah(r.total_salary)
+                ]),
+                theme: 'grid',
+                styles: { fontSize: 8 }
+            });
+            
+            doc.save('Report_Aktivitas.pdf');
+        }
+
+        function exportActivityExcel() {
+            if (!currentActivityData) return alert('Generate laporan terlebih dahulu!');
+            
+            const ws_data = [
+                ['Report Aktivitas Pekerjaan'],
+                [],
+                ['Total Kehadiran', currentActivityData.overview.total_attendance],
+                ['Total Jam Kerja', currentActivityData.overview.total_hours],
+                ['Total Gaji', currentActivityData.overview.total_salary],
+                [],
+                ['Ranking Karyawan'],
+                ['#', 'Nama', 'Hadir', 'Attendance %', 'Jam Kerja', 'Gaji'],
+                ...currentActivityData.rankings.map((r, i) => [
+                    i + 1, r.full_name, `${r.present_days}/${r.total_days}`, 
+                    r.attendance_rate, r.total_hours, r.total_salary
+                ])
+            ];
+            
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Report Aktivitas');
+            XLSX.writeFile(wb, 'Report_Aktivitas.xlsx');
+        }
+
+        // Helper functions
+        function formatRupiah(angka) {
+            return 'Rp ' + parseInt(angka).toLocaleString('id-ID');
+        }
+
+        function getStatusClass(status) {
+            if (status.includes('Tepat Waktu') || status.includes('On Time')) 
+                return 'bg-green-100 text-green-700 border border-green-200';
+            if (status.includes('Telat') || status.includes('TELAT')) 
+                return 'bg-red-100 text-red-700 border border-red-200';
+            if (status.includes('Izin')) 
+                return 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+            if (status.includes('Sakit')) 
+                return 'bg-blue-100 text-blue-700 border border-blue-200';
+            return 'bg-gray-100 text-gray-700 border border-gray-200';
+        }
+    </script>
+</body>
+
+</html>

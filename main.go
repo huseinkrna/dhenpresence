@@ -80,6 +80,12 @@ func main() {
 	http.HandleFunc("/admin/delete_log", handleAdminDeleteLog)
 	http.HandleFunc("/admin/delete_user", handleAdminDeleteUser)
 	http.HandleFunc("/admin/manage_accounts", handleAdminManageAccounts)
+	http.HandleFunc("/admin/reports", handleAdminReports)
+
+	// Routes Report API
+	http.HandleFunc("/api/employees", handleAPIGetEmployees)
+	http.HandleFunc("/api/salary_report", handleAPISalaryReport)
+	http.HandleFunc("/api/activity_report", handleAPIActivityReport)
 
 	// Routes PWA
 	http.HandleFunc("/manifest.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "assets/manifest.json") })
@@ -690,4 +696,533 @@ func formatRupiah(amount int64) string {
 		res = append(res, str[i:i+3]...)
 	}
 	return "Rp " + string(res) + ",-"
+}
+
+// ---------------------------------------------------------
+// HANDLER ADMIN REPORTS
+// ---------------------------------------------------------
+func handleAdminReports(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("user_session")
+	if err != nil || cookie.Value == "" {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	var role, fullName, avatar string
+	err = database.DB.QueryRow(database.AdaptQuery("SELECT role, full_name, avatar_url FROM users WHERE username = ?"), cookie.Value).Scan(&role, &fullName, &avatar)
+	if err != nil || role != "owner" {
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+		return
+	}
+
+	tmpl, err := template.ParseFiles("views/admin_reports.html")
+	if err != nil {
+		http.Error(w, "Template error", 500)
+		return
+	}
+
+	data := struct {
+		UserFullName string
+		UserAvatar   string
+	}{
+		UserFullName: fullName,
+		UserAvatar:   avatar,
+	}
+
+	tmpl.Execute(w, data)
+}
+
+// ---------------------------------------------------------
+// API GET EMPLOYEES
+// ---------------------------------------------------------
+func handleAPIGetEmployees(w http.ResponseWriter, r *http.Request) {
+	rows, err := database.DB.Query(database.AdaptQuery("SELECT id, full_name FROM users WHERE role != 'owner' ORDER BY full_name"))
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Database error"})
+		return
+	}
+	defer rows.Close()
+
+	type Employee struct {
+		ID       int    `json:"id"`
+		FullName string `json:"full_name"`
+	}
+
+	var employees []Employee
+	for rows.Next() {
+		var emp Employee
+		rows.Scan(&emp.ID, &emp.FullName)
+		employees = append(employees, emp)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":   true,
+		"employees": employees,
+	})
+}
+
+// ---------------------------------------------------------
+// API SALARY REPORT (LAPORAN GAJI INDIVIDU)
+// ---------------------------------------------------------
+func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query().Get("user_id")
+	startDate := r.URL.Query().Get("start")
+	endDate := r.URL.Query().Get("end")
+
+	if userID == "" || startDate == "" || endDate == "" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Missing parameters"})
+		return
+	}
+
+	// Get employee info
+	var fullName, phoneNumber string
+	var hourlyRate int
+	err := database.DB.QueryRow(database.AdaptQuery("SELECT full_name, phone_number, hourly_rate FROM users WHERE id = ?"), userID).Scan(&fullName, &phoneNumber, &hourlyRate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "User not found"})
+		return
+	}
+
+	// Get attendance records
+	query := database.AdaptQuery(`
+		SELECT shift_date, clock_in_time, clock_out_time, status, permit_reason, 
+		       is_late, penalty_hours, compensation_hours, manual_salary
+		FROM attendance
+		WHERE user_id = ? AND shift_date BETWEEN ? AND ?
+		ORDER BY shift_date ASC
+	`)
+
+	rows, err := database.DB.Query(query, userID, startDate, endDate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Database error"})
+		return
+	}
+	defer rows.Close()
+
+	type DailyDetail struct {
+		Date     string  `json:"date"`
+		Shift    string  `json:"shift"`
+		ClockIn  string  `json:"clock_in"`
+		ClockOut string  `json:"clock_out"`
+		Hours    float64 `json:"hours"`
+		Status   string  `json:"status"`
+	}
+
+	var details []DailyDetail
+	var totalDays, onTimeCount, lateCount, permitCount, sickCount int
+	var totalHours, totalPenaltyHours, totalBonusHours float64
+
+	for rows.Next() {
+		var shiftDate, status, permitReason string
+		var clockInTime, clockOutTime sql.NullString
+		var isLate sql.NullBool
+		var penaltyHours, compensationHours, manualSalary sql.NullInt64
+
+		rows.Scan(&shiftDate, &clockInTime, &clockOutTime, &status, &permitReason, &isLate, &penaltyHours, &compensationHours, &manualSalary)
+
+		totalDays++
+
+		var hours float64
+		var clockInStr, clockOutStr string
+		var shiftType string
+
+		if clockInTime.Valid {
+			clockInStr = clockInTime.String[11:16] // HH:MM
+
+			// Determine shift type from time
+			hour, _ := time.Parse("15:04:05", clockInTime.String[11:])
+			if hour.Hour() >= 6 && hour.Hour() < 12 {
+				shiftType = "Pagi"
+			} else if hour.Hour() >= 12 && hour.Hour() < 18 {
+				shiftType = "Sore"
+			} else {
+				shiftType = "Malam"
+			}
+		}
+
+		if clockOutTime.Valid {
+			clockOutStr = clockOutTime.String[11:16]
+
+			// Calculate hours
+			if clockInTime.Valid {
+				clockIn, _ := time.Parse("2006-01-02 15:04:05", shiftDate+" "+clockInTime.String)
+				clockOut, _ := time.Parse("2006-01-02 15:04:05", shiftDate+" "+clockOutTime.String)
+
+				// Handle overnight shifts
+				if clockOut.Before(clockIn) {
+					clockOut = clockOut.Add(24 * time.Hour)
+				}
+
+				hours = clockOut.Sub(clockIn).Hours()
+				totalHours += hours
+			}
+		}
+
+		// Count status
+		if status == "Sakit" {
+			sickCount++
+		} else if status == "Izin" {
+			permitCount++
+		} else {
+			if isLate.Valid && isLate.Bool {
+				lateCount++
+			} else {
+				onTimeCount++
+			}
+		}
+
+		// Add penalty and bonus
+		if penaltyHours.Valid {
+			totalPenaltyHours += float64(penaltyHours.Int64)
+		}
+		if compensationHours.Valid {
+			totalBonusHours += float64(compensationHours.Int64)
+		}
+
+		// Determine display status
+		displayStatus := "✅ Tepat Waktu"
+		if status == "Sakit" {
+			displayStatus = "🏥 Sakit"
+		} else if status == "Izin" {
+			displayStatus = "📝 Izin"
+		} else if isLate.Valid && isLate.Bool {
+			displayStatus = "⚠️ TELAT"
+		}
+
+		details = append(details, DailyDetail{
+			Date:     shiftDate,
+			Shift:    shiftType,
+			ClockIn:  clockInStr,
+			ClockOut: clockOutStr,
+			Hours:    hours,
+			Status:   displayStatus,
+		})
+	}
+
+	// Calculate salaries
+	grossSalary := int64(totalHours * float64(hourlyRate))
+	penaltyAmount := int64(totalPenaltyHours * float64(hourlyRate))
+	bonusAmount := int64(totalBonusHours * float64(hourlyRate))
+	netSalary := grossSalary - penaltyAmount + bonusAmount
+
+	// Calculate attendance rate
+	presentDays := onTimeCount + lateCount
+	attendanceRate := 0
+	if totalDays > 0 {
+		attendanceRate = (presentDays * 100) / totalDays
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"employee": map[string]interface{}{
+			"full_name":    fullName,
+			"phone_number": phoneNumber,
+			"hourly_rate":  hourlyRate,
+		},
+		"period": startDate + " s/d " + endDate,
+		"summary": map[string]interface{}{
+			"total_days":      totalDays,
+			"total_hours":     totalHours,
+			"attendance_rate": attendanceRate,
+			"on_time_count":   onTimeCount,
+			"late_count":      lateCount,
+			"permit_count":    permitCount,
+			"sick_count":      sickCount,
+			"gross_salary":    grossSalary,
+			"penalty_amount":  penaltyAmount,
+			"bonus_amount":    bonusAmount,
+			"net_salary":      netSalary,
+		},
+		"details": details,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// ---------------------------------------------------------
+// API ACTIVITY REPORT (REPORT AKTIVITAS)
+// ---------------------------------------------------------
+func handleAPIActivityReport(w http.ResponseWriter, r *http.Request) {
+	startDate := r.URL.Query().Get("start")
+	endDate := r.URL.Query().Get("end")
+
+	if startDate == "" || endDate == "" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Missing parameters"})
+		return
+	}
+
+	// Get daily statistics
+	dailyQuery := database.AdaptQuery(`
+		SELECT 
+			shift_date,
+			COUNT(*) as total_attendance,
+			COUNT(CASE WHEN status NOT IN ('Izin', 'Sakit') THEN 1 END) as present_count,
+			COUNT(CASE WHEN status = 'Izin' THEN 1 END) as permit_count,
+			COUNT(CASE WHEN status = 'Sakit' THEN 1 END) as sick_count
+		FROM attendance
+		WHERE shift_date BETWEEN ? AND ?
+		GROUP BY shift_date
+		ORDER BY shift_date ASC
+	`)
+
+	dailyRows, err := database.DB.Query(dailyQuery, startDate, endDate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Database error"})
+		return
+	}
+	defer dailyRows.Close()
+
+	type DailyStat struct {
+		Date                 string  `json:"date"`
+		EmployeeCount        int     `json:"employee_count"`
+		PresentCount         int     `json:"present_count"`
+		PermitCount          int     `json:"permit_count"`
+		SickCount            int     `json:"sick_count"`
+		TotalHours           float64 `json:"total_hours"`
+		AttendancePercentage int     `json:"attendance_percentage"`
+		LongShiftCount       int     `json:"long_shift_count"`
+	}
+
+	var dailyStats []DailyStat
+	var totalAttendance, totalPresent, totalPermit, totalSick int
+	var grandTotalHours float64
+
+	for dailyRows.Next() {
+		var date string
+		var total, present, permit, sick int
+		dailyRows.Scan(&date, &total, &present, &permit, &sick)
+
+		// Calculate total hours for this day
+		var dayHours float64
+		hoursQuery := database.AdaptQuery(`
+			SELECT SUM(
+				CASE 
+					WHEN clock_out_time IS NOT NULL THEN 
+						CAST((julianday(clock_out_time) - julianday(clock_in_time)) * 24 AS REAL)
+					ELSE 0 
+				END
+			)
+			FROM attendance
+			WHERE shift_date = ? AND status NOT IN ('Izin', 'Sakit')
+		`)
+		database.DB.QueryRow(hoursQuery, date).Scan(&dayHours)
+
+		attendancePercentage := 0
+		if total > 0 {
+			attendancePercentage = (present * 100) / total
+		}
+
+		dailyStats = append(dailyStats, DailyStat{
+			Date:                 date,
+			EmployeeCount:        total,
+			PresentCount:         present,
+			PermitCount:          permit,
+			SickCount:            sick,
+			TotalHours:           dayHours,
+			AttendancePercentage: attendancePercentage,
+			LongShiftCount:       0, // TODO: implement long shift detection
+		})
+
+		totalAttendance += total
+		totalPresent += present
+		totalPermit += permit
+		totalSick += sick
+		grandTotalHours += dayHours
+	}
+
+	// Calculate average hours per day
+	avgHoursPerDay := 0.0
+	if len(dailyStats) > 0 {
+		avgHoursPerDay = grandTotalHours / float64(len(dailyStats))
+	}
+
+	// Get employee rankings
+	rankingQuery := database.AdaptQuery(`
+		SELECT 
+			u.id,
+			u.full_name,
+			u.hourly_rate,
+			COUNT(*) as total_days,
+			COUNT(CASE WHEN a.status NOT IN ('Izin', 'Sakit') THEN 1 END) as present_days
+		FROM users u
+		LEFT JOIN attendance a ON u.id = a.user_id AND a.shift_date BETWEEN ? AND ?
+		WHERE u.role != 'owner'
+		GROUP BY u.id, u.full_name, u.hourly_rate
+		HAVING total_days > 0
+	`)
+
+	rankingRows, err := database.DB.Query(rankingQuery, startDate, endDate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Database error"})
+		return
+	}
+	defer rankingRows.Close()
+
+	type Ranking struct {
+		FullName       string  `json:"full_name"`
+		TotalDays      int     `json:"total_days"`
+		PresentDays    int     `json:"present_days"`
+		AttendanceRate int     `json:"attendance_rate"`
+		TotalHours     float64 `json:"total_hours"`
+		TotalSalary    int64   `json:"total_salary"`
+	}
+
+	var rankings []Ranking
+	var totalSalary int64
+
+	for rankingRows.Next() {
+		var userID int
+		var fullName string
+		var hourlyRate, totalDays, presentDays int
+		rankingRows.Scan(&userID, &fullName, &hourlyRate, &totalDays, &presentDays)
+
+		// Calculate total hours for this user
+		var userHours float64
+		userHoursQuery := database.AdaptQuery(`
+			SELECT COALESCE(SUM(
+				CASE 
+					WHEN clock_out_time IS NOT NULL THEN 
+						CAST((julianday(clock_out_time) - julianday(clock_in_time)) * 24 AS REAL)
+					ELSE 0 
+				END
+			), 0)
+			FROM attendance
+			WHERE user_id = ? AND shift_date BETWEEN ? AND ? AND status NOT IN ('Izin', 'Sakit')
+		`)
+		database.DB.QueryRow(userHoursQuery, userID, startDate, endDate).Scan(&userHours)
+
+		// Calculate salary (hours * rate)
+		userSalary := int64(userHours * float64(hourlyRate))
+
+		attendanceRate := 0
+		if totalDays > 0 {
+			attendanceRate = (presentDays * 100) / totalDays
+		}
+
+		rankings = append(rankings, Ranking{
+			FullName:       fullName,
+			TotalDays:      totalDays,
+			PresentDays:    presentDays,
+			AttendanceRate: attendanceRate,
+			TotalHours:     userHours,
+			TotalSalary:    userSalary,
+		})
+
+		totalSalary += userSalary
+	}
+
+	// Sort rankings by attendance rate (descending)
+	for i := 0; i < len(rankings)-1; i++ {
+		for j := i + 1; j < len(rankings); j++ {
+			if rankings[j].AttendanceRate > rankings[i].AttendanceRate {
+				rankings[i], rankings[j] = rankings[j], rankings[i]
+			}
+		}
+	}
+
+	// Generate insights
+	type Insight struct {
+		Icon    string `json:"icon"`
+		Title   string `json:"title"`
+		Message string `json:"message"`
+	}
+
+	var insights []Insight
+
+	// Find employees with 5+ late occurrences
+	lateQuery := database.AdaptQuery(`
+		SELECT u.full_name, COUNT(*) as late_count
+		FROM users u
+		JOIN attendance a ON u.id = a.user_id
+		WHERE a.shift_date BETWEEN ? AND ? AND a.is_late = 1
+		GROUP BY u.id, u.full_name
+		HAVING late_count >= 5
+		ORDER BY late_count DESC
+	`)
+
+	lateRows, _ := database.DB.Query(lateQuery, startDate, endDate)
+	var lateEmployees []string
+	for lateRows.Next() {
+		var name string
+		var count int
+		lateRows.Scan(&name, &count)
+		lateEmployees = append(lateEmployees, fmt.Sprintf("%s (%dx)", name, count))
+	}
+	lateRows.Close()
+
+	if len(lateEmployees) > 0 {
+		insights = append(insights, Insight{
+			Icon:    "fa-triangle-exclamation",
+			Title:   "Keterlambatan Berulang",
+			Message: fmt.Sprintf("%d karyawan dengan keterlambatan ≥5x: %s", len(lateEmployees), strings.Join(lateEmployees, ", ")),
+		})
+	}
+
+	// Find day with lowest attendance
+	if len(dailyStats) > 0 {
+		minAttendance := dailyStats[0]
+		for _, day := range dailyStats {
+			if day.AttendancePercentage < minAttendance.AttendancePercentage {
+				minAttendance = day
+			}
+		}
+		if minAttendance.AttendancePercentage < 80 {
+			insights = append(insights, Insight{
+				Icon:    "fa-calendar-xmark",
+				Title:   "Kehadiran Rendah",
+				Message: fmt.Sprintf("Hari dengan kehadiran terendah: %s (%d%%)", minAttendance.Date, minAttendance.AttendancePercentage),
+			})
+		}
+	}
+
+	// Average attendance rate
+	if len(dailyStats) > 0 {
+		avgAttendance := 0
+		for _, day := range dailyStats {
+			avgAttendance += day.AttendancePercentage
+		}
+		avgAttendance /= len(dailyStats)
+
+		if avgAttendance >= 90 {
+			insights = append(insights, Insight{
+				Icon:    "fa-trophy",
+				Title:   "Performa Excellent!",
+				Message: fmt.Sprintf("Rata-rata kehadiran %d%% - Tim sangat disiplin!", avgAttendance),
+			})
+		} else if avgAttendance < 70 {
+			insights = append(insights, Insight{
+				Icon:    "fa-chart-line-down",
+				Title:   "Perhatian Diperlukan",
+				Message: fmt.Sprintf("Rata-rata kehadiran hanya %d%% - Perlu evaluasi dan perbaikan", avgAttendance),
+			})
+		}
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"overview": map[string]interface{}{
+			"total_attendance":  totalAttendance,
+			"present_count":     totalPresent,
+			"permit_count":      totalPermit,
+			"sick_count":        totalSick,
+			"total_hours":       grandTotalHours,
+			"avg_hours_per_day": avgHoursPerDay,
+			"total_salary":      totalSalary,
+		},
+		"daily_stats": dailyStats,
+		"rankings":    rankings,
+		"insights":    insights,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
