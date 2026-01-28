@@ -516,15 +516,31 @@
 
         // Switch tabs
         function switchTab(tab) {
+            console.log('🔄 Switching to tab:', tab);
+            
             // Update tab buttons
             document.querySelectorAll('.sub-tab').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.sub-tab').forEach(btn => btn.classList.add('text-gray-500'));
-            document.getElementById(`tab-${tab}`).classList.add('active');
-            document.getElementById(`tab-${tab}`).classList.remove('text-gray-500');
+            
+            const tabButton = document.getElementById(`tab-${tab}`);
+            if (tabButton) {
+                tabButton.classList.add('active');
+                tabButton.classList.remove('text-gray-500');
+                console.log('✅ Tab button activated:', `tab-${tab}`);
+            } else {
+                console.error('❌ Tab button not found:', `tab-${tab}`);
+            }
             
             // Update content
             document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
-            document.getElementById(`content-${tab}`).classList.remove('hidden');
+            
+            const tabContent = document.getElementById(`content-${tab}`);
+            if (tabContent) {
+                tabContent.classList.remove('hidden');
+                console.log('✅ Tab content shown:', `content-${tab}`);
+            } else {
+                console.error('❌ Tab content not found:', `content-${tab}`);
+            }
         }
 
         // Generate Salary Report
@@ -571,18 +587,26 @@
 
         // Render Salary Report
         function renderSalaryReport(data) {
+            console.log('🔍 Rendering Salary Report:', data);
+            console.log('📋 Employee Data:', data.employee);
+            
             // Summary cards
             document.getElementById('totalDays').textContent = data.summary.total_days;
             document.getElementById('totalHours').textContent = data.summary.total_hours.toFixed(1);
             document.getElementById('attendanceRate').textContent = data.summary.attendance_rate + '%';
             document.getElementById('netSalary').textContent = formatRupiah(data.summary.net_salary);
             
-            // Employee info
-            document.getElementById('empAvatar').src = data.employee.avatar_url || 'https://api.dicebear.com/7.x/adventurer/svg?seed=default';
-            document.getElementById('empName').textContent = data.employee.full_name;
-            document.getElementById('empPhone').textContent = data.employee.phone_number;
-            document.getElementById('empRate').textContent = formatRupiah(data.employee.hourly_rate) + '/jam';
-            document.getElementById('reportPeriod').textContent = data.period;
+            // Employee info with safety checks
+            if (data.employee) {
+                console.log('✅ Employee data exists:', data.employee.full_name);
+                document.getElementById('empAvatar').src = data.employee.avatar_url || 'https://api.dicebear.com/7.x/adventurer/svg?seed=default';
+                document.getElementById('empName').textContent = data.employee.full_name || '-';
+                document.getElementById('empPhone').textContent = data.employee.phone_number || '-';
+                document.getElementById('empRate').textContent = formatRupiah(data.employee.hourly_rate || 0) + '/jam';
+            } else {
+                console.error('❌ Employee data is missing!');
+            }
+            document.getElementById('reportPeriod').textContent = data.period || '-';
             
             // Attendance stats
             document.getElementById('onTimeCount').textContent = data.summary.on_time_count + ' hari';
