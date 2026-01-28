@@ -48,11 +48,146 @@ type HistoryData struct {
 }
 
 // ---------------------------------------------------------
+// SEED DUMMY DATA
+// ---------------------------------------------------------
+func seedDummyData() {
+	// Cek apakah sudah ada user selain owner/manajer
+	var count int
+	err := database.DB.QueryRow(database.AdaptQuery("SELECT COUNT(*) FROM users WHERE role = 'employee'")).Scan(&count)
+	if err != nil {
+		log.Println("⚠️ Error checking employee count:", err)
+		return
+	}
+
+	if count > 0 {
+		log.Printf("ℹ️ Sudah ada %d karyawan, skip seed data\n", count)
+		return
+	}
+
+	log.Println("🌱 Seeding dummy data...")
+
+	// 4 Dummy employees
+	employees := []struct {
+		Username   string
+		Password   string
+		FullName   string
+		Phone      string
+		HourlyRate int
+		AvatarURL  string
+	}{
+		{"budi", "budi123", "Budi Santoso", "081234567890", 12000, "https://api.dicebear.com/7.x/adventurer/svg?seed=budi&backgroundColor=b6e3f4"},
+		{"siti", "siti123", "Siti Nurhaliza", "081234567891", 13000, "https://api.dicebear.com/7.x/adventurer/svg?seed=siti&backgroundColor=c0aede"},
+		{"andi", "andi123", "Andi Wijaya", "081234567892", 11000, "https://api.dicebear.com/7.x/adventurer/svg?seed=andi&backgroundColor=d1d4f9"},
+		{"rina", "rina123", "Rina Agustin", "081234567893", 12500, "https://api.dicebear.com/7.x/adventurer/svg?seed=rina&backgroundColor=ffd8be"},
+	}
+
+	// Insert employees
+	for _, emp := range employees {
+		result, err := database.DB.Exec(
+			database.AdaptQuery("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, 'employee', ?, ?, ?)"),
+			emp.Username, emp.Password, emp.FullName, emp.HourlyRate, emp.Phone, emp.AvatarURL,
+		)
+		if err != nil {
+			log.Printf("⚠️ Skip %s: %v", emp.FullName, err)
+			continue
+		}
+		userID, _ := result.LastInsertId()
+		log.Printf("✅ Created: %s (ID: %d)", emp.FullName, userID)
+	}
+
+	// Generate attendance data dari 1 Jan 2026
+	log.Println("📅 Generating attendance data...")
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.Local)
+	endDate := time.Now()
+
+	// Get employee IDs
+	rows, _ := database.DB.Query(database.AdaptQuery("SELECT id FROM users WHERE role = 'employee'"))
+	var employeeIDs []int
+	for rows.Next() {
+		var id int
+		rows.Scan(&id)
+		employeeIDs = append(employeeIDs, id)
+	}
+	rows.Close()
+
+	totalInserted := 0
+	for d := startDate; d.Before(endDate) || d.Equal(endDate); d = d.AddDate(0, 0, 1) {
+		if d.Weekday() == time.Sunday {
+			continue // Skip Sundays
+		}
+
+		for _, empID := range employeeIDs {
+			// 85% hadir, 10% izin, 5% sakit
+			rand := time.Now().UnixNano() % 100
+
+			if rand < 85 {
+				// Hadir
+				clockInHour := 8
+				if rand%10 < 3 {
+					clockInHour = 13 // 30% sore
+				}
+				clockInMinute := int(time.Now().UnixNano()%45) - 15
+				if clockInMinute < 0 {
+					clockInMinute = 0
+				}
+
+				clockInTime := time.Date(d.Year(), d.Month(), d.Day(), clockInHour, clockInMinute, 0, 0, time.Local)
+				clockOutTime := clockInTime.Add(8 * time.Hour).Add(time.Duration(clockInMinute) * time.Minute)
+
+				scheduledTime := time.Date(d.Year(), d.Month(), d.Day(), clockInHour, 0, 0, 0, time.Local)
+				isLate := clockInTime.After(scheduledTime.Add(15 * time.Minute))
+
+				var penaltyHours int64
+				if isLate {
+					lateMinutes := int(clockInTime.Sub(scheduledTime).Minutes())
+					if lateMinutes > 60 {
+						penaltyHours = 2
+					} else if lateMinutes > 15 {
+						penaltyHours = 1
+					}
+				}
+
+				var compensationHours int64
+				if rand%10 == 0 {
+					compensationHours = 1 // 10% dapat overtime
+				}
+
+				database.DB.Exec(
+					database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, clock_in_time, clock_out_time, status, is_late, penalty_hours, compensation_hours, is_auto_closed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+					empID, d.Format("2006-01-02"), clockInTime.Format("2006-01-02 15:04:05"), clockOutTime.Format("2006-01-02 15:04:05"), "", isLate, penaltyHours, compensationHours, false,
+				)
+				totalInserted++
+
+			} else if rand < 95 {
+				// Izin
+				database.DB.Exec(
+					database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, status, permit_reason) VALUES (?, ?, ?, ?)`),
+					empID, d.Format("2006-01-02"), "IZIN: Keperluan pribadi", "Keperluan pribadi",
+				)
+				totalInserted++
+			} else {
+				// Sakit
+				database.DB.Exec(
+					database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, status, permit_reason) VALUES (?, ?, ?, ?)`),
+					empID, d.Format("2006-01-02"), "SAKIT: Flu", "Flu",
+				)
+				totalInserted++
+			}
+		}
+	}
+
+	log.Printf("✅ Seed complete: %d attendance records\n", totalInserted)
+}
+
+// ---------------------------------------------------------
 // MAIN
 // ---------------------------------------------------------
 func main() {
 	database.InitDB()
 	log.Println("✅ Database siap!")
+
+	// Seed dummy data untuk testing (hanya jika belum ada)
+	seedDummyData()
 
 	fs := http.FileServer(http.Dir("assets"))
 	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
