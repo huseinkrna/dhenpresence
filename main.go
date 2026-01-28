@@ -254,25 +254,64 @@ func handleAPIClockIn(w http.ResponseWriter, r *http.Request) {
 	var userID int
 	database.DB.QueryRow(database.AdaptQuery("SELECT id FROM users WHERE username = ?"), c.Value).Scan(&userID)
 
-	// Auto clock out user sebelumnya dengan waktu clock in user baru (bukan time.Now)
 	now := time.Now()
-	database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET clock_out_time = ?, is_auto_closed = 1 WHERE clock_out_time IS NULL AND user_id != ?`), now, userID)
-
-	isLate := false
-	penalty := 0
 	parsed, _ := time.Parse("15:04", shiftClean)
 	expected := time.Date(now.Year(), now.Month(), now.Day(), parsed.Hour(), parsed.Minute(), 0, 0, now.Location())
-	if now.Sub(expected).Minutes() > 15 {
-		isLate = true
-		penalty = 1
-		database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET compensation_hours = compensation_hours + 1 WHERE id = (SELECT MAX(id) FROM attendance WHERE user_id != ?)`), userID)
-	}
-	database.DB.Exec(database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, clock_in_time, is_late, penalty_hours) VALUES (?, ?, ?, ?, ?)`), userID, now.Format("2006-01-02"), now, isLate, penalty)
 
-	msg := "Berhasil masuk!"
-	if isLate {
-		msg = "⚠️ TELAT! Potong gaji 1 jam."
+	// SHIFT WINDOW VALIDATION: ±3 jam dari waktu shift
+	windowStart := expected.Add(-3 * time.Hour)
+	windowEnd := expected.Add(3 * time.Hour)
+	if now.Before(windowStart) || now.After(windowEnd) {
+		jsonResponse(w, false, "❌ Belum waktunya! Clock in hanya bisa dilakukan 3 jam sebelum/sesudah shift.", "")
+		return
 	}
+
+	// Auto clock out user sebelumnya dengan waktu clock in user baru
+	database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET clock_out_time = ?, is_auto_closed = 1 WHERE clock_out_time IS NULL AND user_id != ?`), now, userID)
+
+	// HITUNG KETERLAMBATAN
+	lateMinutes := now.Sub(expected).Minutes()
+	isLate := false
+	penalty := 0
+	msg := "✅ Berhasil masuk!"
+
+	if lateMinutes > 15 {
+		isLate = true
+		// Toleransi 15 menit: tidak ada penalty
+		// 16-60 menit: potong 1 jam
+		// 61+ menit: potong per jam (ceiling)
+		if lateMinutes <= 60 {
+			penalty = 1
+			msg = "⚠️ TELAT " + fmt.Sprintf("%.0f", lateMinutes) + " menit! Potong gaji 1 jam."
+		} else {
+			// Terlambat 2 jam atau lebih: potong sesuai jam keterlambatan
+			hoursLate := int(lateMinutes / 60)
+			if int(lateMinutes)%60 > 0 {
+				hoursLate++ // Ceiling
+			}
+			penalty = hoursLate
+			msg = "⚠️ TELAT " + fmt.Sprintf("%.0f", lateMinutes) + " menit! Potong gaji " + fmt.Sprintf("%d", penalty) + " jam."
+		}
+
+		// TRANSFER OVERTIME KE USER SEBELUMNYA (User 1)
+		// Nilai keterlambatan dioper ke user sebelumnya sebagai lembur
+		database.DB.Exec(database.AdaptQuery(`
+			UPDATE attendance 
+			SET compensation_hours = compensation_hours + ? 
+			WHERE id = (
+				SELECT MAX(id) 
+				FROM attendance 
+				WHERE user_id != ? AND clock_out_time IS NOT NULL
+			)
+		`), penalty, userID)
+	}
+
+	// Insert record attendance baru
+	database.DB.Exec(database.AdaptQuery(`
+		INSERT INTO attendance (user_id, shift_date, clock_in_time, is_late, penalty_hours) 
+		VALUES (?, ?, ?, ?, ?)
+	`), userID, now.Format("2006-01-02"), now, isLate, penalty)
+
 	jsonResponse(w, true, msg, now.Format("15:04"))
 }
 func handleAPIClockOut(w http.ResponseWriter, r *http.Request) {
