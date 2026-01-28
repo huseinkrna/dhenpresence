@@ -181,7 +181,7 @@ func handleDashboard(w http.ResponseWriter, r *http.Request) {
 	permitReason := ""
 	isSick := false
 	var statusDB, reasonDB string
-	err = database.DB.QueryRow(database.AdaptQuery(`SELECT status, COALESCE(permit_reason, '-') FROM attendance WHERE user_id = ? AND shift_date = ? AND (status LIKE 'IZIN%' OR status LIKE 'SAKIT%') ORDER BY id DESC LIMIT 1`), userID, time.Now().Format("2006-01-02")).Scan(&statusDB, &reasonDB)
+	err = database.DB.QueryRow(database.AdaptQuery(`SELECT status, COALESCE(permit_reason, '-') FROM attendance WHERE user_id = ? AND shift_date = ? AND (status LIKE 'IZIN%' OR status LIKE 'SAKIT%') AND status NOT LIKE 'DIBATALKAN%' ORDER BY id DESC LIMIT 1`), userID, time.Now().Format("2006-01-02")).Scan(&statusDB, &reasonDB)
 	if err == nil {
 		permitStatus = statusDB
 		permitReason = reasonDB
@@ -271,15 +271,15 @@ func handleAPIBackToWork(w http.ResponseWriter, r *http.Request) {
 	var userID int
 	database.DB.QueryRow(database.AdaptQuery("SELECT id FROM users WHERE username = ?"), c.Value).Scan(&userID)
 
-	// Hapus status izin/sakit hari ini
-	res, _ := database.DB.Exec(database.AdaptQuery(`DELETE FROM attendance WHERE user_id = ? AND shift_date = ? AND (status LIKE 'IZIN%' OR status LIKE 'SAKIT%')`), userID, time.Now().Format("2006-01-02"))
+	// Update status menjadi DIBATALKAN agar tetap tercatat di log
+	res, _ := database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET status = 'DIBATALKAN - ' || status WHERE user_id = ? AND shift_date = ? AND (status LIKE 'IZIN%' OR status LIKE 'SAKIT%') AND status NOT LIKE 'DIBATALKAN%'`), userID, time.Now().Format("2006-01-02"))
 
 	if rows, _ := res.RowsAffected(); rows == 0 {
 		jsonResponse(w, false, "Tidak ada status izin/sakit hari ini.", "")
 		return
 	}
 
-	jsonResponse(w, true, "Status izin/sakit dihapus. Selamat bekerja! 💪", "")
+	jsonResponse(w, true, "Status izin/sakit dibatalkan. Selamat bekerja! 💪", "")
 }
 
 func handleAPIChangePassword(w http.ResponseWriter, r *http.Request) {
