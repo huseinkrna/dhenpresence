@@ -69,12 +69,16 @@ func main() {
 	http.HandleFunc("/api/clockin", handleAPIClockIn)
 	http.HandleFunc("/api/clockout", handleAPIClockOut)
 	http.HandleFunc("/api/permit", handleAPIPermit)
+	http.HandleFunc("/api/back_to_work", handleAPIBackToWork)
+	http.HandleFunc("/api/change_password", handleAPIChangePassword)
 
 	// Routes Admin API
 	http.HandleFunc("/admin/update_rate", handleAdminUpdateRate)
 	http.HandleFunc("/admin/update_salary", handleAdminUpdateLogSalary)
 	http.HandleFunc("/admin/reset_password", handleAdminResetPassword)
 	http.HandleFunc("/admin/delete_log", handleAdminDeleteLog)
+	http.HandleFunc("/admin/delete_user", handleAdminDeleteUser)
+	http.HandleFunc("/admin/manage_accounts", handleAdminManageAccounts)
 
 	// Routes PWA
 	http.HandleFunc("/manifest.json", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "assets/manifest.json") })
@@ -259,6 +263,61 @@ func handleAPIPermit(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, true, "Izin Terkirim. Semoga lancar!", "")
 }
 
+func handleAPIBackToWork(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		return
+	}
+	c, _ := r.Cookie("user_session")
+	var userID int
+	database.DB.QueryRow(database.AdaptQuery("SELECT id FROM users WHERE username = ?"), c.Value).Scan(&userID)
+
+	// Hapus status izin/sakit hari ini
+	res, _ := database.DB.Exec(database.AdaptQuery(`DELETE FROM attendance WHERE user_id = ? AND shift_date = ? AND (status LIKE 'IZIN%' OR status LIKE 'SAKIT%')`), userID, time.Now().Format("2006-01-02"))
+
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		jsonResponse(w, false, "Tidak ada status izin/sakit hari ini.", "")
+		return
+	}
+
+	jsonResponse(w, true, "Status izin/sakit dihapus. Selamat bekerja! 💪", "")
+}
+
+func handleAPIChangePassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		return
+	}
+	c, _ := r.Cookie("user_session")
+	var userID int
+	var dbPassword string
+	database.DB.QueryRow(database.AdaptQuery("SELECT id, password FROM users WHERE username = ?"), c.Value).Scan(&userID, &dbPassword)
+
+	oldPassword := r.FormValue("old_password")
+	newPassword := r.FormValue("new_password")
+	confirmPassword := r.FormValue("confirm_password")
+
+	// Validasi password lama
+	if dbPassword != oldPassword {
+		jsonResponse(w, false, "Password lama salah!", "")
+		return
+	}
+
+	// Validasi password baru
+	if newPassword == "" || len(newPassword) < 6 {
+		jsonResponse(w, false, "Password baru minimal 6 karakter!", "")
+		return
+	}
+
+	// Validasi konfirmasi password
+	if newPassword != confirmPassword {
+		jsonResponse(w, false, "Konfirmasi password tidak cocok!", "")
+		return
+	}
+
+	// Update password
+	database.DB.Exec(database.AdaptQuery("UPDATE users SET password = ? WHERE id = ?"), newPassword, userID)
+	jsonResponse(w, true, "Password berhasil diubah!", "")
+}
+
 // ---------------------------------------------------------
 // ADMIN HANDLERS
 // ---------------------------------------------------------
@@ -359,12 +418,29 @@ func handleAdminResetPassword(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, false, "Denied", "")
 		return
 	}
-	if r.FormValue("password") == "" {
-		jsonResponse(w, false, "Empty", "")
+	newPassword := r.FormValue("password")
+	targetUserID := r.FormValue("id")
+
+	if newPassword == "" || len(newPassword) < 6 {
+		jsonResponse(w, false, "Password minimal 6 karakter!", "")
 		return
 	}
-	database.DB.Exec(database.AdaptQuery("UPDATE users SET password = ? WHERE id = ?"), r.FormValue("password"), r.FormValue("id"))
-	jsonResponse(w, true, "Success", "")
+
+	// Update password dengan query yang benar
+	result, err := database.DB.Exec(database.AdaptQuery("UPDATE users SET password = ? WHERE id = ?"), newPassword, targetUserID)
+	if err != nil {
+		log.Printf("Error updating password: %v", err)
+		jsonResponse(w, false, "Error: "+err.Error(), "")
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		jsonResponse(w, false, "User tidak ditemukan!", "")
+		return
+	}
+
+	jsonResponse(w, true, "Password berhasil direset!", "")
 }
 
 func handleAdminDeleteLog(w http.ResponseWriter, r *http.Request) {
@@ -385,6 +461,73 @@ func handleAdminDeleteLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResponse(w, true, "Data berhasil dihapus selamanya.", "")
+}
+
+func handleAdminDeleteUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		return
+	}
+	c, _ := r.Cookie("user_session")
+	var role string
+	database.DB.QueryRow(database.AdaptQuery("SELECT role FROM users WHERE username = ?"), c.Value).Scan(&role)
+	if role != "owner" {
+		jsonResponse(w, false, "Denied", "")
+		return
+	}
+
+	userID := r.FormValue("id")
+
+	// Cek apakah user yang akan dihapus adalah owner
+	var targetRole string
+	database.DB.QueryRow(database.AdaptQuery("SELECT role FROM users WHERE id = ?"), userID).Scan(&targetRole)
+	if targetRole == "owner" {
+		jsonResponse(w, false, "Tidak dapat menghapus akun owner!", "")
+		return
+	}
+
+	// Hapus semua attendance records user ini dulu
+	database.DB.Exec(database.AdaptQuery("DELETE FROM attendance WHERE user_id = ?"), userID)
+
+	// Hapus user
+	_, err := database.DB.Exec(database.AdaptQuery("DELETE FROM users WHERE id = ?"), userID)
+	if err != nil {
+		jsonResponse(w, false, "Error: "+err.Error(), "")
+		return
+	}
+	jsonResponse(w, true, "Akun berhasil dihapus!", "")
+}
+
+func handleAdminManageAccounts(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("user_session")
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	var role string
+	database.DB.QueryRow(database.AdaptQuery("SELECT role FROM users WHERE username = ?"), c.Value).Scan(&role)
+	if role != "owner" {
+		http.Error(w, "Access Denied", http.StatusForbidden)
+		return
+	}
+
+	// Ambil semua users
+	rows, _ := database.DB.Query(database.AdaptQuery(`SELECT id, username, full_name, role, COALESCE(phone_number, '-'), COALESCE(avatar_url, '') FROM users ORDER BY role DESC, full_name ASC`))
+	type UserAccount struct {
+		ID                                      int
+		Username, FullName, Role, Phone, Avatar string
+	}
+	var users []UserAccount
+	for rows.Next() {
+		var u UserAccount
+		rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Role, &u.Phone, &u.Avatar)
+		if u.Avatar == "" {
+			u.Avatar = "https://api.dicebear.com/7.x/adventurer/svg?seed=" + u.Username
+		}
+		users = append(users, u)
+	}
+
+	tmpl, _ := template.ParseFiles("views/manage_accounts.html")
+	tmpl.Execute(w, users)
 }
 
 func handleAdminUpdateRate(w http.ResponseWriter, r *http.Request) {

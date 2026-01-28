@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <title>Kelola Akun - DhenPresence</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/assets/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen pb-20">
+    <nav class="bg-[#064e3b] text-white p-4 shadow-lg sticky top-0 z-40">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-users text-2xl text-green-400"></i>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wider leading-none">KELOLA AKUN</h1>
+                    <p class="text-[10px] text-green-200">Manajemen User Dhen Coffee</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/admin"
+                    class="text-xs bg-green-700/50 hover:bg-green-600 px-3 py-1.5 rounded-lg transition"><i
+                        class="fa-solid fa-arrow-left"></i> Kembali</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-5xl mx-auto p-4 space-y-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-5 border-b border-gray-100 bg-gray-50/50">
+                <h2 class="font-bold text-gray-800 text-sm"><i
+                        class="fa-solid fa-address-book mr-2 text-green-700"></i>Daftar Semua Akun</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-600">
+                    <thead class="bg-gray-100 text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                        <tr>
+                            <th class="px-6 py-3">ID</th>
+                            <th class="px-6 py-3">User</th>
+                            <th class="px-6 py-3">Username</th>
+                            <th class="px-6 py-3">Telepon</th>
+                            <th class="px-6 py-3">Role</th>
+                            <th class="px-6 py-3 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        {{range .}}
+                        <tr class="hover:bg-green-50/50 transition">
+                            <td class="px-6 py-4 font-mono text-xs">{{.ID}}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="{{.Avatar}}" class="w-10 h-10 rounded-full bg-gray-100 border">
+                                    <span class="font-bold text-gray-800">{{.FullName}}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 font-mono text-xs">{{.Username}}</td>
+                            <td class="px-6 py-4 text-xs">{{.Phone}}</td>
+                            <td class="px-6 py-4">
+                                {{if eq .Role "owner"}}
+                                <span
+                                    class="px-3 py-1 bg-purple-100 text-purple-700 text-[10px] font-bold rounded-full border border-purple-200">
+                                    <i class="fa-solid fa-crown mr-1"></i>OWNER
+                                </span>
+                                {{else}}
+                                <span
+                                    class="px-3 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full border border-blue-200">
+                                    <i class="fa-solid fa-user mr-1"></i>EMPLOYEE
+                                </span>
+                                {{end}}
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                {{if eq .Role "owner"}}
+                                <span class="text-xs text-gray-400 italic">Protected</span>
+                                {{else}}
+                                <button onclick="deleteUser({{.ID}}, '{{.FullName}}')"
+                                    class="text-gray-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition"
+                                    title="Hapus Akun">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                                {{end}}
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <p class="text-xs text-gray-400">⚠️ Akun owner tidak dapat dihapus • DhenPresence Admin</p>
+        </div>
+    </div>
+
+    <script>
+        function deleteUser(id, name) {
+            if (!confirm(`⚠️ PERINGATAN!\n\nApakah Anda yakin ingin MENGHAPUS akun "${name}"?\n\n• Semua data presensi user ini akan ikut terhapus\n• Aksi ini tidak dapat dibatalkan!\n\nKetik "HAPUS" untuk konfirmasi.`)) {
+                return;
+            }
+
+            const confirmation = prompt(`Ketik "HAPUS" untuk menghapus akun ${name}:`);
+            if (confirmation !== "HAPUS") {
+                alert("Pembatalan berhasil. Akun tidak dihapus.");
+                return;
+            }
+
+            fetch('/admin/delete_user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `id=${id}`
+            }).then(r => r.json()).then(d => {
+                alert(d.message);
+                if (d.success) {
+                    location.reload();
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

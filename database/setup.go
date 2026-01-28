@@ -151,6 +151,7 @@ func createTablesSQLite() {
 }
 
 func seedUser() {
+	// Seed Owner
 	var id int
 	err := DB.QueryRow("SELECT id FROM users WHERE username = 'owner'").Scan(&id)
 
@@ -163,5 +164,20 @@ func seedUser() {
 				"owner", "kopi123", "Owner Dhen Coffee", "owner", 15000)
 		}
 		log.Println("✅ User default: owner / kopi123")
+	}
+
+	// Seed Super Admin (Manajer)
+	var managerId int
+	err = DB.QueryRow("SELECT id FROM users WHERE username = 'manajer'").Scan(&managerId)
+
+	if err == sql.ErrNoRows {
+		_, err := DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate) VALUES ($1, $2, $3, $4, $5)",
+			"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000)
+		if err != nil {
+			// Coba dengan syntax SQLite (?)
+			DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate) VALUES (?, ?, ?, ?, ?)",
+				"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000)
+		}
+		log.Println("✅ User default: manajer / sidikalang")
 	}
 }
