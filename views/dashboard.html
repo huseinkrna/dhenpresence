@@ -48,6 +48,7 @@
         async function checkActiveShift() {
             try {
                 const response = await fetch('/api/active_shift');
+                if (!response.ok) throw new Error('Network error');
                 const data = await response.json();
                 const activeShift = data.active_shift;
                 
@@ -58,6 +59,61 @@
                         btn.classList.add('opacity-30', 'cursor-not-allowed');
                         btn.onclick = null;
                     });
+                    document.getElementById('blp').disabled = true;
+                    document.getElementById('blp').classList.add('opacity-30', 'cursor-not-allowed');
+                    document.getElementById('blp').onclick = null;
+                } else if (activeShift === 'long_sore') {
+                    // Jika long sore aktif, disable semua
+                    document.querySelectorAll('.sb').forEach(btn => {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-30', 'cursor-not-allowed');
+                        btn.onclick = null;
+                    });
+                }
+            } catch (error) {
+                console.log('Error checking active shift (mungkin offline):', error);
+                // Jika offline, biarkan semua shift tetap bisa dipilih
+            }
+        }
+        
+        // Offline/Online Detection
+        function showOfflineNotification() {
+            const offlineDiv = document.getElementById('offlineNotification');
+            offlineDiv.classList.remove('hidden');
+            offlineDiv.classList.add('flex');
+        }
+        
+        function hideOfflineNotification() {
+            const offlineDiv = document.getElementById('offlineNotification');
+            offlineDiv.classList.add('hidden');
+            offlineDiv.classList.remove('flex');
+        }
+        
+        function showOnlineToast() {
+            const toast = document.getElementById('onlineToast');
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('flex');
+            }, 3000);
+        }
+        
+        window.addEventListener('online', () => {
+            console.log('Back online!');
+            hideOfflineNotification();
+            showOnlineToast();
+        });
+        
+        window.addEventListener('offline', () => {
+            console.log('Went offline!');
+            showOfflineNotification();
+        });
+        
+        // Check initial status
+        if (!navigator.onLine) {
+            showOfflineNotification();
+        }
                     document.getElementById('blp').disabled = true;
                     document.getElementById('blp').classList.add('opacity-30', 'cursor-not-allowed');
                     document.getElementById('blp').onclick = null;
@@ -365,6 +421,33 @@
             });
         });
     </script>
+
+    <!-- Offline Notification -->
+    <div id="offlineNotification" class="fixed inset-0 bg-black/80 z-[70] hidden flex-col items-center justify-center backdrop-blur-md">
+        <div class="bg-white rounded-3xl p-8 max-w-sm m-4 text-center animate-bounce">
+            <div class="text-6xl mb-4">😅</div>
+            <h2 class="text-2xl font-black text-gray-800 mb-2">📡 Kabur Sinyal!</h2>
+            <p class="text-gray-600 mb-3">Internet kamu lagi main petak umpet nih...</p>
+            <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-3 mb-3">
+                <p class="text-sm text-yellow-800 italic">
+                    "😂 Tenang bos, data lama masih disimpen. Tapi kalo mau clock in ya mesti online dulu!"
+                </p>
+            </div>
+            <div class="flex items-center justify-center gap-2 text-xs text-gray-400">
+                <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <span>Menunggu koneksi...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Online Toast -->
+    <div id="onlineToast" class="fixed top-4 right-4 z-[80] hidden items-center gap-3 bg-green-600 text-white px-6 py-4 rounded-2xl shadow-2xl animate-bounce">
+        <div class="text-2xl">🎉</div>
+        <div>
+            <p class="font-bold text-sm">Yeay! Online Lagi!</p>
+            <p class="text-xs text-green-100">Koneksi udah balik normal ✨</p>
+        </div>
+    </div>
 
     <!-- Success Modal -->
     <div id="successModal" class="fixed inset-0 bg-black/70 z-[60] hidden flex items-center justify-center backdrop-blur-sm">

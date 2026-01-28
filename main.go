@@ -136,14 +136,31 @@ func handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
-	var dbPass, role string
-	err := database.DB.QueryRow(database.AdaptQuery("SELECT password, role FROM users WHERE username = ?"), username).Scan(&dbPass, &role)
+	log.Printf("🔐 Login attempt - Username: %s", username)
 
-	if err == sql.ErrNoRows || dbPass != password {
-		log.Printf("❌ Login Failed for user '%s'. DB Error: %v. Password Match: %v", username, err, dbPass == password)
+	var dbPass, role, fullName string
+	var userID int
+	err := database.DB.QueryRow(database.AdaptQuery("SELECT id, password, role, full_name FROM users WHERE username = ?"), username).Scan(&userID, &dbPass, &role, &fullName)
+
+	if err == sql.ErrNoRows {
+		log.Printf("❌ Login Failed for '%s' - User not found in database", username)
 		http.Redirect(w, r, "/?error=1", http.StatusSeeOther)
 		return
 	}
+
+	if err != nil {
+		log.Printf("❌ Login Failed for '%s' - Database error: %v", username, err)
+		http.Redirect(w, r, "/?error=1", http.StatusSeeOther)
+		return
+	}
+
+	if dbPass != password {
+		log.Printf("❌ Login Failed for '%s' - Password mismatch. Expected: %s, Got: %s", username, dbPass, password)
+		http.Redirect(w, r, "/?error=1", http.StatusSeeOther)
+		return
+	}
+
+	log.Printf("✅ Login Success - User: %s (%s), Role: %s", username, fullName, role)
 
 	http.SetCookie(w, &http.Cookie{Name: "user_session", Value: username, Path: "/", HttpOnly: true})
 

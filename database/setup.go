@@ -177,19 +177,36 @@ func seedUser() {
 	err = DB.QueryRow("SELECT id FROM users WHERE username = 'manajer'").Scan(&managerId)
 
 	if err == sql.ErrNoRows {
+		log.Println("🔧 Creating manajer account...")
 		avatarManager := "https://api.dicebear.com/7.x/adventurer/svg?seed=manajer&backgroundColor=c0aede"
 		_, err := DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES ($1, $2, $3, $4, $5, $6, $7)",
 			"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000, "081234567891", avatarManager)
 		if err != nil {
+			log.Printf("⚠️ PostgreSQL insert failed, trying SQLite syntax...")
 			// Coba dengan syntax SQLite (?)
 			_, errSqlite := DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
 				"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000, "081234567891", avatarManager)
 			if errSqlite != nil {
-				log.Printf("❌ Error creating manajer account: %v", errSqlite)
+				log.Printf("❌ Error creating manajer account: PostgreSQL: %v, SQLite: %v", err, errSqlite)
+			} else {
+				log.Println("✅ User default: manajer / sidikalang (SQLite)")
 			}
+		} else {
+			log.Println("✅ User default: manajer / sidikalang (PostgreSQL)")
 		}
-		log.Println("✅ User default: manajer / sidikalang")
 	} else {
-		log.Println("✅ User manajer sudah ada di database")
+		log.Printf("✅ User manajer sudah ada di database (ID: %d)", managerId)
+	}
+
+	// List all users for debugging
+	rows, err := DB.Query("SELECT username, role FROM users ORDER BY role DESC, username")
+	if err == nil {
+		log.Println("📋 Daftar semua user:")
+		for rows.Next() {
+			var username, role string
+			rows.Scan(&username, &role)
+			log.Printf("   - %s (%s)", username, role)
+		}
+		rows.Close()
 	}
 }
