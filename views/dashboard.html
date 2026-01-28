@@ -114,21 +114,7 @@
         if (!navigator.onLine) {
             showOfflineNotification();
         }
-                    document.getElementById('blp').disabled = true;
-                    document.getElementById('blp').classList.add('opacity-30', 'cursor-not-allowed');
-                    document.getElementById('blp').onclick = null;
-                } else if (activeShift === 'long_sore') {
-                    // Jika long sore aktif, disable semua
-                    document.querySelectorAll('.sb').forEach(btn => {
-                        btn.disabled = true;
-                        btn.classList.add('opacity-30', 'cursor-not-allowed');
-                        btn.onclick = null;
-                    });
-                }
-            } catch (error) {
-                console.log('Error checking active shift:', error);
-            }
-        }
+        
         function clkIn() {
             if (!selShift) { alert("Pilih Shift!"); return }
             const b = document.getElementById('bIn'); b.disabled = true; b.innerHTML = 'Mencari...';
