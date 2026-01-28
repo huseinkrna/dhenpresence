@@ -778,13 +778,18 @@ func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get employee info
-	var fullName, phoneNumber string
+	var fullName, phoneNumber, avatarURL string
 	var hourlyRate int
-	err := database.DB.QueryRow(database.AdaptQuery("SELECT full_name, phone_number, hourly_rate FROM users WHERE id = ?"), userID).Scan(&fullName, &phoneNumber, &hourlyRate)
+	err := database.DB.QueryRow(database.AdaptQuery("SELECT full_name, phone_number, hourly_rate, COALESCE(avatar_url, '') FROM users WHERE id = ?"), userID).Scan(&fullName, &phoneNumber, &hourlyRate, &avatarURL)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "User not found"})
 		return
+	}
+
+	// Set default avatar if empty
+	if avatarURL == "" {
+		avatarURL = "https://api.dicebear.com/7.x/adventurer/svg?seed=" + fullName
 	}
 
 	// Get attendance records
@@ -805,12 +810,14 @@ func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type DailyDetail struct {
-		Date     string  `json:"date"`
-		Shift    string  `json:"shift"`
-		ClockIn  string  `json:"clock_in"`
-		ClockOut string  `json:"clock_out"`
-		Hours    float64 `json:"hours"`
-		Status   string  `json:"status"`
+		Date        string  `json:"date"`
+		Shift       string  `json:"shift"`
+		ClockIn     string  `json:"clock_in"`
+		ClockOut    string  `json:"clock_out"`
+		Hours       float64 `json:"hours"`
+		HoursFormat string  `json:"hours_format"`
+		Status      string  `json:"status"`
+		Salary      int64   `json:"salary"`
 	}
 
 	var details []DailyDetail
@@ -848,10 +855,10 @@ func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
 		if clockOutTime.Valid {
 			clockOutStr = clockOutTime.String[11:16]
 
-			// Calculate hours
+			// Calculate hours (dengan menit/detik seperti di dashboard)
 			if clockInTime.Valid {
-				clockIn, _ := time.Parse("2006-01-02 15:04:05", shiftDate+" "+clockInTime.String)
-				clockOut, _ := time.Parse("2006-01-02 15:04:05", shiftDate+" "+clockOutTime.String)
+				clockIn, _ := time.Parse("2006-01-02 15:04:05", clockInTime.String)
+				clockOut, _ := time.Parse("2006-01-02 15:04:05", clockOutTime.String)
 
 				// Handle overnight shifts
 				if clockOut.Before(clockIn) {
@@ -894,13 +901,34 @@ func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
 			displayStatus = "⚠️ TELAT"
 		}
 
+		// Calculate salary for this day (sama seperti dashboard)
+		var daySalary int64
+		if status != "Sakit" && status != "Izin" && hours > 0 {
+			effectiveHours := hours - float64(penaltyHours.Int64)
+			if compensationHours.Valid {
+				effectiveHours += float64(compensationHours.Int64)
+			}
+			if effectiveHours < 0 {
+				effectiveHours = 0
+			}
+			daySalary = int64(effectiveHours * float64(hourlyRate))
+		}
+
+		// Format hours seperti dashboard: "8.5 Jam"
+		hoursFormat := "-"
+		if hours > 0 {
+			hoursFormat = fmt.Sprintf("%.1f Jam", hours)
+		}
+
 		details = append(details, DailyDetail{
-			Date:     shiftDate,
-			Shift:    shiftType,
-			ClockIn:  clockInStr,
-			ClockOut: clockOutStr,
-			Hours:    hours,
-			Status:   displayStatus,
+			Date:        shiftDate,
+			Shift:       shiftType,
+			ClockIn:     clockInStr,
+			ClockOut:    clockOutStr,
+			Hours:       hours,
+			HoursFormat: hoursFormat,
+			Status:      displayStatus,
+			Salary:      daySalary,
 		})
 	}
 
@@ -923,6 +951,7 @@ func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
 			"full_name":    fullName,
 			"phone_number": phoneNumber,
 			"hourly_rate":  hourlyRate,
+			"avatar_url":   avatarURL,
 		},
 		"period": startDate + " s/d " + endDate,
 		"summary": map[string]interface{}{

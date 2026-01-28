@@ -202,23 +202,26 @@
                         <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
                             <i class="fa-solid fa-user-circle text-green-700 mr-2"></i> Informasi Karyawan
                         </h3>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Nama Lengkap</p>
-                                <p id="empName" class="font-bold text-gray-800">-</p>
+                        <div class="flex items-center gap-4 mb-4">
+                            <img id="empAvatar" src="" class="w-20 h-20 rounded-full border-4 border-green-100 bg-gray-100">
+                            <div class="flex-1 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                                <div>
+                                    <p class="text-xs text-gray-500 uppercase font-bold mb-1">Nama Lengkap</p>
+                                    <p id="empName" class="font-bold text-gray-800">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 uppercase font-bold mb-1">No. Telepon</p>
+                                    <p id="empPhone" class="font-bold text-gray-800">-</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 uppercase font-bold mb-1">Tarif Per Jam</p>
+                                    <p id="empRate" class="font-bold text-gray-800">Rp 0</p>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-xs text-gray-500 uppercase font-bold mb-1">No. Telepon</p>
-                                <p id="empPhone" class="font-bold text-gray-800">-</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Tarif Per Jam</p>
-                                <p id="empRate" class="font-bold text-gray-800">Rp 0</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500 uppercase font-bold mb-1">Periode Laporan</p>
-                                <p id="reportPeriod" class="font-bold text-gray-800">-</p>
-                            </div>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <p class="text-xs text-gray-500 uppercase font-bold mb-1">Periode Laporan</p>
+                            <p id="reportPeriod" class="font-bold text-gray-800">-</p>
                         </div>
                     </div>
 
@@ -575,6 +578,7 @@
             document.getElementById('netSalary').textContent = formatRupiah(data.summary.net_salary);
             
             // Employee info
+            document.getElementById('empAvatar').src = data.employee.avatar_url || 'https://api.dicebear.com/7.x/adventurer/svg?seed=default';
             document.getElementById('empName').textContent = data.employee.full_name;
             document.getElementById('empPhone').textContent = data.employee.phone_number;
             document.getElementById('empRate').textContent = formatRupiah(data.employee.hourly_rate) + '/jam';
@@ -655,7 +659,7 @@
                     <td class="px-4 py-3 text-xs">${row.shift || '-'}</td>
                     <td class="px-4 py-3 text-xs font-mono">${row.clock_in || '-'}</td>
                     <td class="px-4 py-3 text-xs font-mono">${row.clock_out || '-'}</td>
-                    <td class="px-4 py-3 text-right font-bold">${row.hours.toFixed(1)} jam</td>
+                    <td class="px-4 py-3 text-right font-bold">${row.hours_format}</td>
                     <td class="px-4 py-3 text-center">
                         <span class="px-2 py-1 rounded text-xs font-bold ${getStatusClass(row.status)}">${row.status}</span>
                     </td>
@@ -857,50 +861,117 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
+            // Company Header/Kop Surat
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DHEN COFFEE', 14, 15);
+            
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'italic');
+            doc.text('- We Serve With Heart', 14, 21);
+            
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            const alamat = 'Jl. Raya Kledokan Jl. Babarsari No.68, Kledokan, Caturtunggal,';
+            const alamat2 = 'Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281';
+            doc.text(alamat, 14, 26);
+            doc.text(alamat2, 14, 30);
+            
+            // Horizontal line
+            doc.setLineWidth(0.5);
+            doc.line(14, 33, 196, 33);
+            
             // Title
-            doc.setFontSize(18);
+            doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
-            doc.text('Laporan Gaji Individu', 14, 20);
+            doc.text('LAPORAN GAJI INDIVIDU', 105, 42, { align: 'center' });
             
-            // Employee info
-            doc.setFontSize(10);
+            // Employee info box
+            doc.setFillColor(245, 247, 250);
+            doc.rect(14, 48, 182, 24, 'F');
+            
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text('INFORMASI KARYAWAN:', 18, 54);
+            
             doc.setFont('helvetica', 'normal');
-            doc.text(`Nama: ${currentSalaryData.employee.full_name}`, 14, 30);
-            doc.text(`Periode: ${currentSalaryData.period}`, 14, 35);
-            doc.text(`Tarif: ${formatRupiah(currentSalaryData.employee.hourly_rate)}/jam`, 14, 40);
+            doc.text(`Nama: ${currentSalaryData.employee.full_name}`, 18, 60);
+            doc.text(`No. Telepon: ${currentSalaryData.employee.phone_number}`, 18, 65);
+            doc.text(`Tarif Per Jam: ${formatRupiah(currentSalaryData.employee.hourly_rate)}`, 110, 60);
+            doc.text(`Periode: ${currentSalaryData.period}`, 110, 65);
             
-            // Summary
-            doc.setFontSize(12);
+            // Summary section
             doc.setFont('helvetica', 'bold');
-            doc.text('Ringkasan:', 14, 50);
+            doc.text('RINGKASAN KEHADIRAN:', 14, 80);
             
-            doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
-            doc.text(`Total Hari Kerja: ${currentSalaryData.summary.total_days} hari`, 14, 57);
-            doc.text(`Total Jam Kerja: ${currentSalaryData.summary.total_hours.toFixed(1)} jam`, 14, 62);
-            doc.text(`Attendance Rate: ${currentSalaryData.summary.attendance_rate}%`, 14, 67);
+            doc.text(`Total Hari Kerja: ${currentSalaryData.summary.total_days} hari`, 18, 86);
+            doc.text(`Attendance Rate: ${currentSalaryData.summary.attendance_rate}%`, 110, 86);
+            doc.text(`Total Jam Kerja: ${currentSalaryData.summary.total_hours.toFixed(1)} jam`, 18, 91);
+            doc.text(`Tepat Waktu: ${currentSalaryData.summary.on_time_count} | Telat: ${currentSalaryData.summary.late_count}`, 110, 91);
             
-            // Salary breakdown
-            doc.text(`Gaji Bruto: ${formatRupiah(currentSalaryData.summary.gross_salary)}`, 14, 75);
-            doc.text(`Potongan Penalty: -${formatRupiah(currentSalaryData.summary.penalty_amount)}`, 14, 80);
-            doc.text(`Bonus Lembur: +${formatRupiah(currentSalaryData.summary.bonus_amount)}`, 14, 85);
+            // Salary breakdown box
+            doc.setFillColor(240, 253, 244);
+            doc.rect(14, 96, 182, 28, 'F');
             
             doc.setFont('helvetica', 'bold');
-            doc.text(`GAJI BERSIH: ${formatRupiah(currentSalaryData.summary.net_salary)}`, 14, 93);
+            doc.text('PERHITUNGAN GAJI:', 18, 102);
+            
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Gaji Bruto (Jam × Tarif):`, 18, 108);
+            doc.text(`${formatRupiah(currentSalaryData.summary.gross_salary)}`, 140, 108, { align: 'right' });
+            
+            doc.setTextColor(220, 38, 38);
+            doc.text(`Potongan Penalty Keterlambatan:`, 18, 113);
+            doc.text(`- ${formatRupiah(currentSalaryData.summary.penalty_amount)}`, 140, 113, { align: 'right' });
+            
+            doc.setTextColor(34, 197, 94);
+            doc.text(`Bonus Lembur / Kompensasi:`, 18, 118);
+            doc.text(`+ ${formatRupiah(currentSalaryData.summary.bonus_amount)}`, 140, 118, { align: 'right' });
+            
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text(`TOTAL GAJI BERSIH:`, 18, 123);
+            doc.text(`${formatRupiah(currentSalaryData.summary.net_salary)}`, 140, 123, { align: 'right' });
             
             // Table
+            doc.setFontSize(9);
             doc.autoTable({
-                startY: 100,
-                head: [['Tanggal', 'Shift', 'Clock In', 'Clock Out', 'Jam', 'Status']],
+                startY: 130,
+                head: [['Tanggal', 'Shift', 'Clock In', 'Clock Out', 'Jam Kerja', 'Status']],
                 body: currentSalaryData.details.map(d => [
                     d.date, d.shift || '-', d.clock_in || '-', d.clock_out || '-', 
-                    d.hours.toFixed(1), d.status
+                    d.hours_format, d.status
                 ]),
                 theme: 'grid',
-                styles: { fontSize: 8 }
+                styles: { 
+                    fontSize: 8,
+                    cellPadding: 2
+                },
+                headStyles: {
+                    fillColor: [6, 78, 59],
+                    textColor: 255,
+                    fontStyle: 'bold'
+                },
+                alternateRowStyles: {
+                    fillColor: [249, 250, 251]
+                },
+                margin: { left: 14, right: 14 }
             });
             
-            doc.save(`Laporan_Gaji_${currentSalaryData.employee.full_name.replace(/\s/g, '_')}.pdf`);
+            // Footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(128, 128, 128);
+                doc.text(`Halaman ${i} dari ${pageCount}`, 105, 287, { align: 'center' });
+                doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`, 14, 287);
+                doc.text('Dokumen ini dicetak oleh sistem DhenPresence', 196, 287, { align: 'right' });
+            }
+            
+            doc.save(`Laporan_Gaji_${currentSalaryData.employee.full_name.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
         }
 
         function exportSalaryExcel() {
@@ -938,7 +1009,91 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
-            doc.setFontSize(18);
+            // Company Header/Kop Surat
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DHEN COFFEE', 14, 15);
+            
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'italic');
+            doc.text('- We Serve With Heart', 14, 21);
+            
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            const alamat = 'Jl. Raya Kledokan Jl. Babarsari No.68, Kledokan, Caturtunggal,';
+            const alamat2 = 'Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281';
+            doc.text(alamat, 14, 26);
+            doc.text(alamat2, 14, 30);
+            
+            // Horizontal line
+            doc.setLineWidth(0.5);
+            doc.line(14, 33, 196, 33);
+            
+            // Title
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('REPORT AKTIVITAS PEKERJAAN', 105, 42, { align: 'center' });
+            
+            const startDate = document.getElementById('activityStartDate').value;
+            const endDate = document.getElementById('activityEndDate').value;
+            
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Periode: ${startDate} s/d ${endDate}`, 105, 48, { align: 'center' });
+            
+            // Overview box
+            doc.setFillColor(245, 247, 250);
+            doc.rect(14, 53, 182, 24, 'F');
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text('OVERVIEW KEHADIRAN:', 18, 59);
+            
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Total Kehadiran: ${currentActivityData.overview.total_attendance}`, 18, 65);
+            doc.text(`Total Jam Kerja: ${currentActivityData.overview.total_hours.toFixed(0)} jam`, 18, 70);
+            doc.text(`Hadir: ${currentActivityData.overview.present_count} | Izin: ${currentActivityData.overview.permit_count} | Sakit: ${currentActivityData.overview.sick_count}`, 110, 65);
+            doc.text(`Total Gaji: ${formatRupiah(currentActivityData.overview.total_salary)}`, 110, 70);
+            
+            // Rankings table
+            doc.setFont('helvetica', 'bold');
+            doc.text('RANKING KARYAWAN (by Attendance %):', 14, 85);
+            
+            doc.autoTable({
+                startY: 88,
+                head: [['#', 'Nama', 'Hadir', 'Attendance %', 'Jam Kerja', 'Gaji']],
+                body: currentActivityData.rankings.map((r, i) => [
+                    i + 1, r.full_name, `${r.present_days}/${r.total_days}`, 
+                    r.attendance_rate + '%', r.total_hours.toFixed(1) + ' jam', formatRupiah(r.total_salary)
+                ]),
+                theme: 'grid',
+                styles: { 
+                    fontSize: 8,
+                    cellPadding: 2
+                },
+                headStyles: {
+                    fillColor: [6, 78, 59],
+                    textColor: 255,
+                    fontStyle: 'bold'
+                },
+                alternateRowStyles: {
+                    fillColor: [249, 250, 251]
+                },
+                margin: { left: 14, right: 14 }
+            });
+            
+            // Footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(128, 128, 128);
+                doc.text(`Halaman ${i} dari ${pageCount}`, 105, 287, { align: 'center' });
+                doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`, 14, 287);
+                doc.text('Dokumen ini dicetak oleh sistem DhenPresence', 196, 287, { align: 'right' });
+            }
+            
+            doc.save(`Report_Aktivitas_${startDate}_${endDate}.pdf`);
+        }
             doc.setFont('helvetica', 'bold');
             doc.text('Report Aktivitas Pekerjaan', 14, 20);
             
