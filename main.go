@@ -709,10 +709,15 @@ func handleAdminReports(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var role, fullName, avatar string
-	err = database.DB.QueryRow(database.AdaptQuery("SELECT role, full_name, avatar_url FROM users WHERE username = ?"), cookie.Value).Scan(&role, &fullName, &avatar)
+	err = database.DB.QueryRow(database.AdaptQuery("SELECT role, full_name, COALESCE(avatar_url, '') FROM users WHERE username = ?"), cookie.Value).Scan(&role, &fullName, &avatar)
 	if err != nil || role != "owner" {
 		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 		return
+	}
+
+	// Set default avatar if empty
+	if avatar == "" {
+		avatar = "https://api.dicebear.com/7.x/adventurer/svg?seed=" + fullName
 	}
 
 	tmpl, err := template.ParseFiles("views/admin_reports.html")
