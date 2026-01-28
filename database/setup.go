@@ -165,6 +165,11 @@ func seedUser() {
 				"owner", "kopi123", "Owner Dhen Coffee", "owner", 15000, "081234567890", avatarOwner)
 		}
 		log.Println("✅ User default: owner / kopi123")
+	} else {
+		// Update owner jika sudah ada tapi belum ada avatar/phone
+		avatarOwner := "https://api.dicebear.com/7.x/adventurer/svg?seed=owner&backgroundColor=b6e3f4"
+		DB.Exec(AdaptQuery("UPDATE users SET phone_number = ?, avatar_url = ? WHERE username = 'owner' AND (phone_number IS NULL OR phone_number = '' OR phone_number = '-')"),
+			"081234567890", avatarOwner)
 	}
 
 	// Seed Super Admin (Manajer)
@@ -177,9 +182,14 @@ func seedUser() {
 			"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000, "081234567891", avatarManager)
 		if err != nil {
 			// Coba dengan syntax SQLite (?)
-			DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			_, errSqlite := DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
 				"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000, "081234567891", avatarManager)
+			if errSqlite != nil {
+				log.Printf("❌ Error creating manajer account: %v", errSqlite)
+			}
 		}
 		log.Println("✅ User default: manajer / sidikalang")
+	} else {
+		log.Println("✅ User manajer sudah ada di database")
 	}
 }
