@@ -71,6 +71,7 @@ func main() {
 	http.HandleFunc("/api/permit", handleAPIPermit)
 	http.HandleFunc("/api/back_to_work", handleAPIBackToWork)
 	http.HandleFunc("/api/change_password", handleAPIChangePassword)
+	http.HandleFunc("/api/active_shift", handleAPIActiveShift)
 
 	// Routes Admin API
 	http.HandleFunc("/admin/update_rate", handleAdminUpdateRate)
@@ -93,8 +94,27 @@ func main() {
 		port = "8080"
 	}
 
+	// Start goroutine untuk auto clock out midnight
+	go autoClockOutMidnight()
+
 	log.Printf("☕ DhenPresence ready at http://localhost:%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+// Auto clock out untuk shift malam di midnight
+func autoClockOutMidnight() {
+	for {
+		now := time.Now()
+		// Hitung waktu sampai midnight
+		midnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+		duration := midnight.Sub(now)
+
+		time.Sleep(duration)
+
+		// Clock out semua yang masih aktif di midnight
+		database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET clock_out_time = ?, is_auto_closed = 1 WHERE clock_out_time IS NULL`), midnight)
+		log.Println("⏰ Auto clock out midnight executed")
+	}
 }
 
 // ---------------------------------------------------------
@@ -216,10 +236,13 @@ func handleAPIClockIn(w http.ResponseWriter, r *http.Request) {
 	}
 	var userID int
 	database.DB.QueryRow(database.AdaptQuery("SELECT id FROM users WHERE username = ?"), c.Value).Scan(&userID)
-	database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET clock_out_time = ?, is_auto_closed = 1 WHERE clock_out_time IS NULL AND user_id != ?`), time.Now(), userID)
+
+	// Auto clock out user sebelumnya dengan waktu clock in user baru (bukan time.Now)
+	now := time.Now()
+	database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET clock_out_time = ?, is_auto_closed = 1 WHERE clock_out_time IS NULL AND user_id != ?`), now, userID)
+
 	isLate := false
 	penalty := 0
-	now := time.Now()
 	parsed, _ := time.Parse("15:04", shiftClean)
 	expected := time.Date(now.Year(), now.Month(), now.Day(), parsed.Hour(), parsed.Minute(), 0, 0, now.Location())
 	if now.Sub(expected).Minutes() > 15 {
@@ -228,6 +251,7 @@ func handleAPIClockIn(w http.ResponseWriter, r *http.Request) {
 		database.DB.Exec(database.AdaptQuery(`UPDATE attendance SET compensation_hours = compensation_hours + 1 WHERE id = (SELECT MAX(id) FROM attendance WHERE user_id != ?)`), userID)
 	}
 	database.DB.Exec(database.AdaptQuery(`INSERT INTO attendance (user_id, shift_date, clock_in_time, is_late, penalty_hours) VALUES (?, ?, ?, ?, ?)`), userID, now.Format("2006-01-02"), now, isLate, penalty)
+
 	msg := "Berhasil masuk!"
 	if isLate {
 		msg = "⚠️ TELAT! Potong gaji 1 jam."
@@ -280,6 +304,40 @@ func handleAPIBackToWork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, true, "Status izin/sakit dibatalkan. Selamat bekerja! 💪", "")
+}
+
+func handleAPIActiveShift(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		return
+	}
+
+	// Cek apakah ada shift yang aktif hari ini
+	var shiftType string
+	err := database.DB.QueryRow(database.AdaptQuery(`
+		SELECT 
+			CASE 
+				WHEN clock_in_time >= ? AND clock_in_time < ? THEN 'long_pagi'
+				WHEN clock_in_time >= ? THEN 'long_sore'
+				ELSE 'normal'
+			END as shift_type
+		FROM attendance 
+		WHERE shift_date = ? AND clock_out_time IS NULL
+		ORDER BY clock_in_time DESC LIMIT 1
+	`),
+		time.Now().Format("2006-01-02")+" 08:00:00",
+		time.Now().Format("2006-01-02")+" 09:00:00",
+		time.Now().Format("2006-01-02")+" 16:00:00",
+		time.Now().Format("2006-01-02"),
+	).Scan(&shiftType)
+
+	if err == sql.ErrNoRows {
+		shiftType = "none"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"active_shift": shiftType,
+	})
 }
 
 func handleAPIChangePassword(w http.ResponseWriter, r *http.Request) {

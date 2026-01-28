@@ -156,12 +156,13 @@ func seedUser() {
 	err := DB.QueryRow("SELECT id FROM users WHERE username = 'owner'").Scan(&id)
 
 	if err == sql.ErrNoRows {
-		_, err := DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate) VALUES ($1, $2, $3, $4, $5)",
-			"owner", "kopi123", "Owner Dhen Coffee", "owner", 15000)
+		avatarOwner := "https://api.dicebear.com/7.x/adventurer/svg?seed=owner&backgroundColor=b6e3f4"
+		_, err := DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+			"owner", "kopi123", "Owner Dhen Coffee", "owner", 15000, "081234567890", avatarOwner)
 		if err != nil {
 			// Coba dengan syntax SQLite (?)
-			DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate) VALUES (?, ?, ?, ?, ?)",
-				"owner", "kopi123", "Owner Dhen Coffee", "owner", 15000)
+			DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
+				"owner", "kopi123", "Owner Dhen Coffee", "owner", 15000, "081234567890", avatarOwner)
 		}
 		log.Println("✅ User default: owner / kopi123")
 	}
@@ -171,12 +172,13 @@ func seedUser() {
 	err = DB.QueryRow("SELECT id FROM users WHERE username = 'manajer'").Scan(&managerId)
 
 	if err == sql.ErrNoRows {
-		_, err := DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate) VALUES ($1, $2, $3, $4, $5)",
-			"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000)
+		avatarManager := "https://api.dicebear.com/7.x/adventurer/svg?seed=manajer&backgroundColor=c0aede"
+		_, err := DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+			"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000, "081234567891", avatarManager)
 		if err != nil {
 			// Coba dengan syntax SQLite (?)
-			DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate) VALUES (?, ?, ?, ?, ?)",
-				"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000)
+			DB.Exec("INSERT INTO users (username, password, full_name, role, hourly_rate, phone_number, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
+				"manajer", "sidikalang", "Manajer Dhen Coffee", "owner", 15000, "081234567891", avatarManager)
 		}
 		log.Println("✅ User default: manajer / sidikalang")
 	}
