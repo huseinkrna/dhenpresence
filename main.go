@@ -98,10 +98,10 @@ func seedDummyData() {
 		return
 	}
 
-	// Generate attendance data dari 1 Jan 2026
-	log.Println("📅 Generating attendance data...")
-	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.Local)
+	// Generate attendance data - ONLY LAST 7 DAYS to avoid blocking startup
+	log.Println("📅 Generating attendance data (last 7 days)...")
 	endDate := time.Now()
+	startDate := endDate.AddDate(0, 0, -7)
 
 	// Get all employee IDs
 	rows, _ := database.DB.Query(database.AdaptQuery("SELECT id FROM users WHERE role = 'employee'"))
@@ -252,8 +252,12 @@ func main() {
 	database.InitDB()
 	log.Println("✅ Database siap!")
 
-	// Seed dummy data untuk testing (hanya jika belum ada)
-	seedDummyData()
+	// Seed dummy data in BACKGROUND to not block startup
+	go func() {
+		log.Println("🔄 Starting background seed...")
+		time.Sleep(3 * time.Second) // Wait for server to fully start
+		seedDummyData()
+	}()
 
 	fs := http.FileServer(http.Dir("assets"))
 	http.Handle("/assets/", http.StripPrefix("/assets/", fs))

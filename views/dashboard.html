@@ -35,13 +35,21 @@
             document.getElementById('quoteText').innerText = '"' + s[Math.floor(Math.random() * s.length)] + '"';
         }
         let selShift = "";
-        function selS(t, ty, b) { 
-            if (b.disabled) return;
-            document.querySelectorAll('.sb').forEach(x => { x.classList.remove('ring-4', 'ring-green-400', 'opacity-100'); x.classList.add('opacity-60', 'grayscale') }); 
-            b.classList.remove('opacity-60', 'grayscale'); 
-            b.classList.add('opacity-100', 'ring-4', 'ring-green-400'); 
+        function selS(t, ty, btn) {
+            console.log('selS called:', t, ty, btn);
+            if (!btn || btn.disabled) {
+                console.log('Button disabled or not found');
+                return;
+            }
+            document.querySelectorAll('.sb').forEach(x => { 
+                x.classList.remove('ring-4', 'ring-green-400', 'opacity-100'); 
+                x.classList.add('opacity-60', 'grayscale'); 
+            }); 
+            btn.classList.remove('opacity-60', 'grayscale'); 
+            btn.classList.add('opacity-100', 'ring-4', 'ring-green-400'); 
             selShift = t; 
-            localStorage.setItem("tst", ty); 
+            localStorage.setItem("tst", ty);
+            console.log('Shift selected:', t, ty);
         }
         
         // Cek shift aktif dan disable shift yang tidak boleh dipilih
@@ -174,9 +182,27 @@
         }
         
         function clkIn() {
-            if (!selShift) { alert("Pilih Shift!"); return }
-            const b = document.getElementById('bIn'); b.disabled = true; b.innerHTML = 'Mencari...';
-            navigator.geolocation.getCurrentPosition(p => snd(p.coords.latitude, p.coords.longitude, selShift), e => { alert("GPS Mati!"); b.disabled = false; b.innerHTML = "📍 CLOCK IN" }, { enableHighAccuracy: true });
+            console.log('Clock In clicked, selected shift:', selShift);
+            if (!selShift) { 
+                alert("Pilih Shift terlebih dahulu!"); 
+                return;
+            }
+            const b = document.getElementById('bIn'); 
+            b.disabled = true; 
+            b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mencari GPS...';
+            navigator.geolocation.getCurrentPosition(
+                p => {
+                    console.log('GPS found:', p.coords.latitude, p.coords.longitude);
+                    snd(p.coords.latitude, p.coords.longitude, selShift);
+                }, 
+                e => { 
+                    console.error('GPS Error:', e);
+                    alert("GPS Mati! Aktifkan lokasi."); 
+                    b.disabled = false; 
+                    b.innerHTML = "📍 CLOCK IN";
+                }, 
+                { enableHighAccuracy: true }
+            );
         }
         function snd(lat, lon, s) { fetch('/api/clockin', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `lat=${lat}&long=${lon}&shift=${s}` }).then(r => r.json()).then(d => { if (d.success) { localStorage.setItem('lst', JSON.stringify({ d: new Date().toISOString().slice(0, 10), t: localStorage.getItem("tst") })); showSuccessModal(d.message, d.time); setTimeout(() => location.reload(), 2000) } else { alert(d.message); document.getElementById('bIn').disabled = false; document.getElementById('bIn').innerHTML = "📍 CLOCK IN" } }) }
         function backToWork() { if (confirm('Yakin sudah siap kembali bekerja? Status izin/sakit akan dihapus.')) { fetch('/api/back_to_work', { method: 'POST' }).then(r => r.json()).then(d => { alert(d.message); if (d.success) location.reload() }) } }

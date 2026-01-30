@@ -590,21 +590,31 @@
             console.log('🔍 Rendering Salary Report:', data);
             console.log('📋 Employee Data:', data.employee);
             
-            // Summary cards
-            document.getElementById('totalDays').textContent = data.summary.total_days;
-            document.getElementById('totalHours').textContent = data.summary.total_hours.toFixed(1);
-            document.getElementById('attendanceRate').textContent = data.summary.attendance_rate + '%';
-            document.getElementById('netSalary').textContent = formatRupiah(data.summary.net_salary);
+            // Safety check for data structure
+            if (!data || !data.summary) {
+                console.error('❌ Invalid data structure!', data);
+                alert('Error: Data tidak valid. Coba lagi.');
+                return;
+            }
+            
+            // Summary cards with safety
+            document.getElementById('totalDays').textContent = data.summary.total_days || 0;
+            document.getElementById('totalHours').textContent = (data.summary.total_hours || 0).toFixed(1);
+            document.getElementById('attendanceRate').textContent = (data.summary.attendance_rate || 0) + '%';
+            document.getElementById('netSalary').textContent = formatRupiah(data.summary.net_salary || 0);
             
             // Employee info with safety checks
-            if (data.employee) {
+            if (data.employee && typeof data.employee === 'object') {
                 console.log('✅ Employee data exists:', data.employee.full_name);
-                document.getElementById('empAvatar').src = data.employee.avatar_url || 'https://api.dicebear.com/7.x/adventurer/svg?seed=default';
+                const avatar = data.employee.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${data.employee.full_name || 'default'}`;
+                document.getElementById('empAvatar').src = avatar;
                 document.getElementById('empName').textContent = data.employee.full_name || '-';
                 document.getElementById('empPhone').textContent = data.employee.phone_number || '-';
                 document.getElementById('empRate').textContent = formatRupiah(data.employee.hourly_rate || 0) + '/jam';
             } else {
-                console.error('❌ Employee data is missing!');
+                console.error('❌ Employee data is missing or invalid!', data.employee);
+                alert('Error: Data karyawan tidak ditemukan.');
+                return;
             }
             document.getElementById('reportPeriod').textContent = data.period || '-';
             
