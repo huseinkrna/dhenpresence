@@ -946,10 +946,13 @@ func handleAdminReports(w http.ResponseWriter, r *http.Request) {
 // API GET EMPLOYEES
 // ---------------------------------------------------------
 func handleAPIGetEmployees(w http.ResponseWriter, r *http.Request) {
+	log.Println("👥 Fetching employee list...")
+
 	rows, err := database.DB.Query(database.AdaptQuery("SELECT id, full_name FROM users WHERE role != 'owner' ORDER BY full_name"))
 	if err != nil {
+		log.Printf("❌ Employee query error: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Database error"})
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Database error: " + err.Error()})
 		return
 	}
 	defer rows.Close()
@@ -966,6 +969,8 @@ func handleAPIGetEmployees(w http.ResponseWriter, r *http.Request) {
 		employees = append(employees, emp)
 	}
 
+	log.Printf("✅ Found %d employees", len(employees))
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":   true,
@@ -981,7 +986,10 @@ func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
 	startDate := r.URL.Query().Get("start")
 	endDate := r.URL.Query().Get("end")
 
+	log.Printf("📊 Salary Report Request: userID=%s, start=%s, end=%s", userID, startDate, endDate)
+
 	if userID == "" || startDate == "" || endDate == "" {
+		log.Println("❌ Missing parameters")
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Missing parameters"})
 		return
@@ -992,10 +1000,13 @@ func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
 	var hourlyRate int
 	err := database.DB.QueryRow(database.AdaptQuery("SELECT full_name, phone_number, hourly_rate, COALESCE(avatar_url, '') FROM users WHERE id = ?"), userID).Scan(&fullName, &phoneNumber, &hourlyRate, &avatarURL)
 	if err != nil {
+		log.Printf("❌ User not found: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "User not found"})
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "User not found: " + err.Error()})
 		return
 	}
+
+	log.Printf("✅ Employee found: %s (rate: %d/hr)", fullName, hourlyRate)
 
 	// Set default avatar if empty
 	if avatarURL == "" {
@@ -1013,11 +1024,14 @@ func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := database.DB.Query(query, userID, startDate, endDate)
 	if err != nil {
+		log.Printf("❌ Database query error: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Database error"})
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Database error: " + err.Error()})
 		return
 	}
 	defer rows.Close()
+
+	log.Println("📋 Fetching attendance records...")
 
 	type DailyDetail struct {
 		Date        string  `json:"date"`
@@ -1179,6 +1193,8 @@ func handleAPISalaryReport(w http.ResponseWriter, r *http.Request) {
 		},
 		"details": details,
 	}
+
+	log.Printf("✅ Salary report generated: %d days, %.1f hours, Rp%d net salary", totalDays, totalHours, netSalary)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)

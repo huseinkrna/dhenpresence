@@ -499,18 +499,43 @@
 
         // Load employees for dropdown
         async function loadEmployees() {
+            console.log('👥 Loading employees...');
             try {
                 const res = await fetch('/api/employees');
+                console.log('📡 Employee API response:', res.status, res.statusText);
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                
                 const data = await res.json();
+                console.log('📦 Employee data:', data);
+                
+                if (!data.success) {
+                    console.error('❌ API Error:', data.message);
+                    alert('Error loading employees: ' + data.message);
+                    return;
+                }
+                
+                if (!data.employees || data.employees.length === 0) {
+                    console.warn('⚠️ No employees found!');
+                    alert('Tidak ada karyawan yang ditemukan. Pastikan ada dummy data atau karyawan terdaftar.');
+                    return;
+                }
+                
                 const select = document.getElementById('employeeSelect');
                 data.employees.forEach(emp => {
                     const option = document.createElement('option');
                     option.value = emp.id;
                     option.textContent = emp.full_name;
                     select.appendChild(option);
+                    console.log('✅ Added employee:', emp.full_name, '(ID:', emp.id + ')');
                 });
+                
+                console.log(`✅ Loaded ${data.employees.length} employees`);
             } catch (err) {
-                console.error('Error loading employees:', err);
+                console.error('💥 Error loading employees:', err);
+                alert('Gagal memuat daftar karyawan: ' + err.message);
             }
         }
 
@@ -549,6 +574,8 @@
             const startDate = document.getElementById('salaryStartDate').value;
             const endDate = document.getElementById('salaryEndDate').value;
             
+            console.log('📊 Generate Report - Employee:', employeeId, 'Range:', startDate, 'to', endDate);
+            
             if (!employeeId) {
                 alert('Pilih karyawan terlebih dahulu!');
                 return;
@@ -564,11 +591,23 @@
             document.getElementById('salaryLoading').classList.remove('hidden');
             
             try {
-                const res = await fetch(`/api/salary_report?user_id=${employeeId}&start=${startDate}&end=${endDate}`);
+                const url = `/api/salary_report?user_id=${employeeId}&start=${startDate}&end=${endDate}`;
+                console.log('🌐 Fetching:', url);
+                
+                const res = await fetch(url);
+                console.log('📡 Response status:', res.status, res.statusText);
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                
                 const data = await res.json();
+                console.log('📦 Response data:', data);
                 
                 if (!data.success) {
+                    console.error('❌ API Error:', data.message);
                     alert('Error: ' + data.message);
+                    document.getElementById('salaryLoading').classList.add('hidden');
                     return;
                 }
                 
@@ -579,8 +618,8 @@
                 document.getElementById('salaryLoading').classList.add('hidden');
                 document.getElementById('salaryReport').classList.remove('hidden');
             } catch (err) {
-                console.error('Error:', err);
-                alert('Gagal memuat data. Coba lagi!');
+                console.error('💥 Fatal Error:', err);
+                alert('Gagal memuat data: ' + err.message + '\n\nCek browser console (F12) untuk detail.');
                 document.getElementById('salaryLoading').classList.add('hidden');
             }
         }
