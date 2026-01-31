@@ -79,8 +79,8 @@
                         <div class="flex items-center gap-3"><img src="{{.Avatar}}"
                                 class="w-8 h-8 rounded-full bg-green-100 border">
                             <div>
-                                <p class="font-bold text-gray-800 text-sm">{{.Name}}</p>
-                                <p class="text-[10px] text-gray-500">{{.ShiftTime}}</p>
+                                <p class="font-bold text-gray-800 text-sm">{{.Name}}{{if or (eq .Status "Izin") (eq .Status "Sakit")}}<span class="ml-1 text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">{{.Status}}</span>{{end}}</p>
+                                <p class="text-[10px] text-gray-500">{{.ShiftTime}}{{if .PermitReason}}{{if ne .PermitReason "-"}} • {{.PermitReason}}{{end}}{{end}}</p>
                             </div>
                         </div>
                         <div class="text-right"><span

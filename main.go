@@ -38,7 +38,7 @@ type AdminData struct {
 }
 
 type WorkerData struct {
-	Name, ShiftTime, Duration, Avatar string
+	Name, ShiftTime, Duration, Avatar, Status, PermitReason string
 }
 
 type HistoryData struct {
@@ -664,16 +664,16 @@ func handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		userAva = "https://api.dicebear.com/7.x/adventurer/svg?seed=owner"
 	}
 
-	rows, _ := database.DB.Query(database.AdaptQuery(`SELECT u.full_name, COALESCE(u.avatar_url, ''), a.clock_in_time FROM attendance a JOIN users u ON a.user_id = u.id WHERE a.clock_out_time IS NULL`))
+	rows, _ := database.DB.Query(database.AdaptQuery(`SELECT u.full_name, COALESCE(u.avatar_url, ''), a.clock_in_time, COALESCE(a.status, ''), COALESCE(a.permit_reason, '') FROM attendance a JOIN users u ON a.user_id = u.id WHERE a.clock_out_time IS NULL`))
 	var live []WorkerData
 	for rows.Next() {
-		var n, av string
+		var n, av, stat, reas string
 		var t time.Time
-		rows.Scan(&n, &av, &t)
+		rows.Scan(&n, &av, &t, &stat, &reas)
 		if av == "" {
 			av = "https://api.dicebear.com/7.x/adventurer/svg?seed=" + n
 		}
-		live = append(live, WorkerData{n, t.Format("15:04"), time.Since(t).Round(time.Minute).String(), av})
+		live = append(live, WorkerData{n, t.Format("15:04"), time.Since(t).Round(time.Minute).String(), av, stat, reas})
 	}
 
 	start := r.URL.Query().Get("start")
