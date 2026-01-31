@@ -252,12 +252,12 @@ func main() {
 	database.InitDB()
 	log.Println("✅ Database siap!")
 
-	// Seed dummy data in BACKGROUND to not block startup
-	go func() {
-		log.Println("🔄 Starting background seed...")
-		time.Sleep(3 * time.Second) // Wait for server to fully start
-		seedDummyData()
-	}()
+	// DISABLED: Auto-seed dummy data
+	// go func() {
+	// 	log.Println("🔄 Starting background seed...")
+	// 	time.Sleep(3 * time.Second)
+	// 	seedDummyData()
+	// }()
 
 	fs := http.FileServer(http.Dir("assets"))
 	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
@@ -286,6 +286,7 @@ func main() {
 	http.HandleFunc("/admin/delete_user", handleAdminDeleteUser)
 	http.HandleFunc("/admin/manage_accounts", handleAdminManageAccounts)
 	http.HandleFunc("/admin/reports", handleAdminReports)
+	http.HandleFunc("/admin/clean_dummy_data", handleAdminCleanDummyData)
 
 	// Routes Report API
 	http.HandleFunc("/api/employees", handleAPIGetEmployees)
@@ -1480,4 +1481,76 @@ func handleAPIActivityReport(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// ---------------------------------------------------------
+// ADMIN CLEAN DUMMY DATA
+// ---------------------------------------------------------
+func handleAdminCleanDummyData(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Method not allowed",
+		})
+		return
+	}
+
+	// Simple auth check - require "secret" parameter
+	secret := r.URL.Query().Get("secret")
+	if secret != "dhencoffee2026" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Unauthorized - Invalid secret",
+		})
+		return
+	}
+
+	log.Println("🗑️ Cleaning dummy data...")
+
+	// Delete all attendance records for employees
+	result1, err1 := database.DB.Exec(database.AdaptQuery(`
+		DELETE FROM attendance 
+		WHERE user_id IN (SELECT id FROM users WHERE role = 'employee')
+	`))
+
+	if err1 != nil {
+		log.Printf("❌ Error deleting attendance: %v", err1)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Error deleting attendance: " + err1.Error(),
+		})
+		return
+	}
+
+	attendanceDeleted, _ := result1.RowsAffected()
+	log.Printf("✅ Deleted %d attendance records", attendanceDeleted)
+
+	// Delete all employee accounts (keep only owner/manajer)
+	result2, err2 := database.DB.Exec(database.AdaptQuery(`
+		DELETE FROM users WHERE role = 'employee'
+	`))
+
+	if err2 != nil {
+		log.Printf("❌ Error deleting employees: %v", err2)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Error deleting employees: " + err2.Error(),
+		})
+		return
+	}
+
+	employeesDeleted, _ := result2.RowsAffected()
+	log.Printf("✅ Deleted %d employee accounts", employeesDeleted)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":            true,
+		"message":            fmt.Sprintf("Cleaned %d employees and %d attendance records", employeesDeleted, attendanceDeleted),
+		"employees_deleted":  employeesDeleted,
+		"attendance_deleted": attendanceDeleted,
+	})
 }
