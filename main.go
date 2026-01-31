@@ -488,37 +488,41 @@ func handleAPIClockIn(w http.ResponseWriter, r *http.Request) {
 	lateMinutes := now.Sub(expected).Minutes()
 	isLate := false
 	penalty := 0
+	compensationPrevious := 0.0
 	msg := "✅ Berhasil masuk!"
 
 	if lateMinutes > 15 {
 		isLate = true
-		// Toleransi 15 menit: tidak ada penalty
-		// 16-60 menit: potong 1 jam
-		// 61+ menit: potong per jam (ceiling)
+
 		if lateMinutes <= 60 {
+			// Toleransi 15 menit: tidak ada penalty
+			// 16-60 menit: potong 1 jam
 			penalty = 1
+			compensationPrevious = lateMinutes / 60.0 // Transfer sesuai lama keterlambatan dalam jam (desimal)
 			msg = "⚠️ TELAT " + fmt.Sprintf("%.0f", lateMinutes) + " menit! Potong gaji 1 jam."
 		} else {
-			// Terlambat 2 jam atau lebih: potong sesuai jam keterlambatan
-			hoursLate := int(lateMinutes / 60)
-			if int(lateMinutes)%60 > 0 {
-				hoursLate++ // Ceiling
-			}
-			penalty = hoursLate
-			msg = "⚠️ TELAT " + fmt.Sprintf("%.0f", lateMinutes) + " menit! Potong gaji " + fmt.Sprintf("%d", penalty) + " jam."
+			// Terlambat >60 menit: potong sesuai jam keterlambatan (desimal, tidak ceiling)
+			hoursLate := lateMinutes / 60.0
+			penalty = int(hoursLate) // Simpan sebagai integer untuk penalty_hours
+			compensationPrevious = hoursLate
+			msg = fmt.Sprintf("⚠️ TELAT %.0f menit! Potong gaji %.1f jam.", lateMinutes, hoursLate)
 		}
 
-		// TRANSFER OVERTIME KE USER SEBELUMNYA (User 1)
-		// Nilai keterlambatan dioper ke user sebelumnya sebagai lembur
+		// TRANSFER KETERLAMBATAN KE USER SHIFT SEBELUMNYA
+		// Keterlambatan dialokasikan ke shift sebelumnya sebagai bonus jam kerja
 		database.DB.Exec(database.AdaptQuery(`
 			UPDATE attendance 
-			SET compensation_hours = compensation_hours + ? 
+			SET compensation_hours = COALESCE(compensation_hours, 0) + ? 
 			WHERE id = (
-				SELECT MAX(id) 
+				SELECT id 
 				FROM attendance 
-				WHERE user_id != ? AND clock_out_time IS NOT NULL
+				WHERE user_id != ? 
+					AND clock_out_time IS NOT NULL 
+					AND shift_date >= date(?, '-1 day')
+				ORDER BY clock_out_time DESC 
+				LIMIT 1
 			)
-		`), penalty, userID)
+		`), int(compensationPrevious), userID, now.Format("2006-01-02"))
 	}
 
 	// Insert record attendance baru
