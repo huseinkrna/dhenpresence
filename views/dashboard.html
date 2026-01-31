@@ -54,6 +54,7 @@
         
         // Cek shift aktif dan disable shift yang tidak boleh dipilih
         async function checkActiveShift() {
+            console.log('=== checkActiveShift called ===');
             try {
                 const response = await fetch('/api/active_shift');
                 if (!response.ok) {
@@ -65,8 +66,9 @@
                 console.log('Active shift data:', data);
                 
                 const activeShift = data.active_shift;
+                console.log('Active shift type:', activeShift);
                 
-                if (!activeShift || activeShift === '') {
+                if (!activeShift || activeShift === '' || activeShift === 'none') {
                     // Tidak ada shift aktif - enable semua
                     enableAllShifts();
                 } else if (activeShift === 'long_pagi') {
@@ -133,17 +135,18 @@
             console.log('Enabling all shift buttons');
             document.querySelectorAll('.sb').forEach(btn => {
                 btn.disabled = false;
-                btn.classList.remove('opacity-30', 'cursor-not-allowed', 'grayscale');
-                // Long shift buttons get opacity-100, normal shifts get opacity-60 grayscale
+                btn.classList.remove('opacity-30', 'cursor-not-allowed', 'grayscale', 'opacity-60');
+                // Set proper opacity based on shift type
                 if (btn.hasAttribute('data-shift') && btn.getAttribute('data-shift') === 'long') {
                     btn.classList.add('opacity-100');
-                    btn.classList.remove('opacity-60', 'grayscale');
                 } else {
                     btn.classList.add('opacity-60', 'grayscale');
                 }
+                // Restore onclick handler if it was saved
                 const originalOnclick = btn.getAttribute('data-original-onclick');
                 if (originalOnclick) {
                     btn.setAttribute('onclick', originalOnclick);
+                    btn.removeAttribute('data-original-onclick');
                 }
             });
         }
@@ -343,7 +346,7 @@
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <button id="blp" onclick="selS('08:00','long_pagi',this)" data-shift="long"
-                    class="sb bg-cyan-50 border border-cyan-100 text-cyan-800 p-3 rounded-2xl flex items-center justify-center gap-3 hover:bg-cyan-100 opacity-60 grayscale">
+                    class="sb bg-cyan-50 border border-cyan-100 text-cyan-800 p-3 rounded-2xl flex items-center justify-center gap-3 hover:bg-cyan-100 opacity-100">
                     <span class="text-2xl">😇</span>
                     <div class="text-left">
                         <span class="text-[10px] font-bold block">LONG PAGI</span>
@@ -351,7 +354,7 @@
                     </div>
                 </button>
                 <button id="bls" onclick="selS('16:00','long_sore',this)" data-shift="long"
-                    class="sb bg-red-50 border border-red-100 text-red-900 p-3 rounded-2xl flex items-center justify-center gap-3 hover:bg-red-100 opacity-60 grayscale">
+                    class="sb bg-red-50 border border-red-100 text-red-900 p-3 rounded-2xl flex items-center justify-center gap-3 hover:bg-red-100 opacity-100">
                     <span class="text-2xl">😈</span>
                     <div class="text-left">
                         <span class="text-[10px] font-bold block">LONG SORE</span>
