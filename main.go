@@ -378,6 +378,9 @@ func handleLoginPost(w http.ResponseWriter, r *http.Request) {
 
 	if role == "owner" {
 		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	} else if role == "manajer" {
+		log.Printf("🔄 Redirecting manajer '%s' to /admin", username)
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
 	} else {
 		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 	}

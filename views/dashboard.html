@@ -41,12 +41,14 @@
                 console.log('Button disabled or not found');
                 return;
             }
+            // Reset all buttons to grayscale
             document.querySelectorAll('.sb').forEach(x => { 
-                x.classList.remove('ring-4', 'ring-green-400', 'opacity-100'); 
-                x.classList.add('opacity-60', 'grayscale'); 
+                x.classList.remove('ring-4', 'ring-green-500', 'opacity-100', 'scale-105', 'shadow-lg'); 
+                x.classList.add('opacity-50', 'grayscale'); 
             }); 
-            btn.classList.remove('opacity-60', 'grayscale'); 
-            btn.classList.add('opacity-100', 'ring-4', 'ring-green-400'); 
+            // Highlight selected button
+            btn.classList.remove('opacity-50', 'grayscale'); 
+            btn.classList.add('opacity-100', 'ring-4', 'ring-green-500', 'scale-105', 'shadow-lg'); 
             selShift = t; 
             localStorage.setItem("tst", ty);
             console.log('Shift selected:', t, ty);
@@ -135,12 +137,12 @@
             console.log('Enabling all shift buttons');
             document.querySelectorAll('.sb').forEach(btn => {
                 btn.disabled = false;
-                btn.classList.remove('opacity-30', 'cursor-not-allowed', 'grayscale', 'opacity-60');
+                btn.classList.remove('opacity-30', 'cursor-not-allowed', 'grayscale', 'opacity-60', 'opacity-50', 'opacity-100', 'ring-4', 'ring-green-500', 'scale-105', 'shadow-lg');
                 // Set proper opacity based on shift type
                 if (btn.hasAttribute('data-shift') && btn.getAttribute('data-shift') === 'long') {
-                    btn.classList.add('opacity-100');
+                    btn.classList.add('opacity-80');
                 } else {
-                    btn.classList.add('opacity-60', 'grayscale');
+                    btn.classList.add('opacity-70');
                 }
                 // Restore onclick handler if it was saved
                 const originalOnclick = btn.getAttribute('data-original-onclick');
@@ -213,10 +215,64 @@
                 { enableHighAccuracy: true }
             );
         }
-        function snd(lat, lon, s) { fetch('/api/clockin', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `lat=${lat}&long=${lon}&shift=${s}` }).then(r => r.json()).then(d => { if (d.success) { localStorage.setItem('lst', JSON.stringify({ d: new Date().toISOString().slice(0, 10), t: localStorage.getItem("tst") })); showSuccessModal(d.message, d.time); setTimeout(() => location.reload(), 2000) } else { alert(d.message); document.getElementById('bIn').disabled = false; document.getElementById('bIn').innerHTML = "📍 CLOCK IN" } }) }
+        function snd(lat, lon, s) { 
+            fetch('/api/clockin', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, 
+                body: `lat=${lat}&long=${lon}&shift=${s}` 
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if (d.success) { 
+                    localStorage.setItem('lst', JSON.stringify({ 
+                        d: new Date().toISOString().slice(0, 10), 
+                        t: localStorage.getItem("tst") 
+                    })); 
+                    showSuccessModal('✅ Clock In Berhasil!', d.time || 'Selamat Bertugas! ☕');
+                    setTimeout(() => location.reload(), 2500);
+                } else { 
+                    alert(d.message); 
+                    document.getElementById('bIn').disabled = false; 
+                    document.getElementById('bIn').innerHTML = '<i class="fa-solid fa-location-dot"></i> CLOCK IN';
+                } 
+            })
+            .catch(e => {
+                alert('Error: ' + e.message);
+                document.getElementById('bIn').disabled = false; 
+                document.getElementById('bIn').innerHTML = '<i class="fa-solid fa-location-dot"></i> CLOCK IN';
+            });
+        }
         function backToWork() { if (confirm('Yakin sudah siap kembali bekerja? Status izin/sakit akan dihapus.')) { fetch('/api/back_to_work', { method: 'POST' }).then(r => r.json()).then(d => { alert(d.message); if (d.success) location.reload() }) } }
         function showSuccessModal(msg, time) { const modal = document.getElementById('successModal'); document.getElementById('successMsg').innerText = msg; document.getElementById('successTime').innerText = time; modal.classList.remove('hidden'); setTimeout(() => modal.classList.add('hidden'), 2000) }
-        function clkOut() { if (confirm("Pulang?")) fetch('/api/clockout', { method: 'POST' }).then(r => r.json()).then(d => { alert(d.message); location.reload() }) }
+        function clkOut() { 
+            if (!confirm("Yakin mau pulang? 🏠")) return;
+            const btn = document.querySelector('button[onclick="clkOut()"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Clock Out...';
+            }
+            fetch('/api/clockout', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => { 
+                    if (d.success) {
+                        showSuccessModal(d.message, d.time || 'Selamat Istirahat!');
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        alert(d.message);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fa-solid fa-door-open"></i> CLOCK OUT';
+                        }
+                    }
+                })
+                .catch(e => {
+                    alert('Error: ' + e.message);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-door-open"></i> CLOCK OUT';
+                    }
+                });
+        }
         let pd = "FULL", ps = "";
         function setPd(t) { pd = t; document.getElementById('bf').className = t === 'FULL' ? 'flex-1 py-2 rounded bg-green-600 text-white font-bold' : 'flex-1 py-2 rounded bg-gray-100 text-gray-500 font-bold'; document.getElementById('bs').className = t === 'SHIFT' ? 'flex-1 py-2 rounded bg-green-600 text-white font-bold' : 'flex-1 py-2 rounded bg-gray-100 text-gray-500 font-bold'; document.getElementById('psb').className = t === 'FULL' ? 'hidden' : 'block bg-gray-50 p-2 rounded mt-2 border border-dashed border-gray-300' }
         function sps(n, b) { ps = n; document.querySelectorAll('.psb').forEach(x => x.classList.remove('ring-2', 'ring-green-500', 'bg-green-100')); b.classList.add('ring-2', 'ring-green-500', 'bg-green-100') }
@@ -326,39 +382,39 @@
         <div class="space-y-3 mb-6">
             <div id="gn" class="grid grid-cols-3 gap-2">
                 <button onclick="selS('08:00','pagi',this)" data-shift="normal"
-                    class="sb bg-white border border-gray-200 text-gray-600 p-3 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-amber-50 opacity-60 grayscale">
-                    <i class="fa-regular fa-sun text-xl"></i>
+                    class="sb bg-gradient-to-br from-amber-100 to-amber-200 border-2 border-amber-300 text-amber-900 p-3 rounded-2xl flex flex-col items-center justify-center gap-1 hover:from-amber-200 hover:to-amber-300 transition-all duration-300 opacity-70">
+                    <i class="fa-regular fa-sun text-2xl"></i>
                     <span class="text-[10px] font-bold">PAGI</span>
-                    <span class="text-[8px] text-gray-400">08:00</span>
+                    <span class="text-[8px] text-amber-700">08:00</span>
                 </button>
                 <button onclick="selS('14:40','sore',this)" data-shift="normal"
-                    class="sb bg-white border border-gray-200 text-gray-600 p-3 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-orange-50 opacity-60 grayscale">
-                    <i class="fa-solid fa-cloud-sun text-xl"></i>
+                    class="sb bg-gradient-to-br from-orange-100 to-orange-200 border-2 border-orange-300 text-orange-900 p-3 rounded-2xl flex flex-col items-center justify-center gap-1 hover:from-orange-200 hover:to-orange-300 transition-all duration-300 opacity-70">
+                    <i class="fa-solid fa-cloud-sun text-2xl"></i>
                     <span class="text-[10px] font-bold">SORE</span>
-                    <span class="text-[8px] text-gray-400">14:40</span>
+                    <span class="text-[8px] text-orange-700">14:40</span>
                 </button>
                 <button onclick="selS('19:20','malam',this)" data-shift="normal"
-                    class="sb bg-white border border-gray-200 text-gray-600 p-3 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-indigo-50 opacity-60 grayscale">
-                    <i class="fa-solid fa-moon text-xl"></i>
+                    class="sb bg-gradient-to-br from-indigo-100 to-indigo-200 border-2 border-indigo-300 text-indigo-900 p-3 rounded-2xl flex flex-col items-center justify-center gap-1 hover:from-indigo-200 hover:to-indigo-300 transition-all duration-300 opacity-70">
+                    <i class="fa-solid fa-moon text-2xl"></i>
                     <span class="text-[10px] font-bold">MALAM</span>
-                    <span class="text-[8px] text-gray-400">19:20</span>
+                    <span class="text-[8px] text-indigo-700">19:20</span>
                 </button>
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <button id="blp" onclick="selS('08:00','long_pagi',this)" data-shift="long"
-                    class="sb bg-cyan-50 border border-cyan-100 text-cyan-800 p-3 rounded-2xl flex items-center justify-center gap-3 hover:bg-cyan-100 opacity-100">
+                    class="sb bg-gradient-to-br from-cyan-100 to-cyan-200 border-2 border-cyan-300 text-cyan-900 p-3 rounded-2xl flex items-center justify-center gap-3 hover:from-cyan-200 hover:to-cyan-300 transition-all duration-300 opacity-80">
                     <span class="text-2xl">😇</span>
                     <div class="text-left">
                         <span class="text-[10px] font-bold block">LONG PAGI</span>
-                        <span class="text-[8px] text-cyan-600">08:00</span>
+                        <span class="text-[8px] text-cyan-700">08:00</span>
                     </div>
                 </button>
                 <button id="bls" onclick="selS('16:00','long_sore',this)" data-shift="long"
-                    class="sb bg-red-50 border border-red-100 text-red-900 p-3 rounded-2xl flex items-center justify-center gap-3 hover:bg-red-100 opacity-100">
+                    class="sb bg-gradient-to-br from-rose-100 to-rose-200 border-2 border-rose-300 text-rose-900 p-3 rounded-2xl flex items-center justify-center gap-3 hover:from-rose-200 hover:to-rose-300 transition-all duration-300 opacity-80">
                     <span class="text-2xl">😈</span>
                     <div class="text-left">
                         <span class="text-[10px] font-bold block">LONG SORE</span>
-                        <span class="text-[8px] text-red-700">16:00</span>
+                        <span class="text-[8px] text-rose-700">16:00</span>
                     </div>
                 </button>
             </div>
