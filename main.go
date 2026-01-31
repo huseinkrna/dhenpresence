@@ -285,10 +285,10 @@ func main() {
 	http.HandleFunc("/admin/delete_log", handleAdminDeleteLog)
 	http.HandleFunc("/admin/delete_user", handleAdminDeleteUser)
 	http.HandleFunc("/admin/manage_accounts", handleAdminManageAccounts)
-	http.HandleFunc("/admin/reports", handleAdminReports)
+	// http.HandleFunc("/admin/reports", handleAdminReports) // DISABLED: Reports feature removed
 	http.HandleFunc("/admin/clean_dummy_data", handleAdminCleanDummyData)
 
-	// Routes Report API
+	// Routes Report API (kept for potential future use)
 	http.HandleFunc("/api/employees", handleAPIGetEmployees)
 	http.HandleFunc("/api/salary_report", handleAPISalaryReport)
 	http.HandleFunc("/api/activity_report", handleAPIActivityReport)

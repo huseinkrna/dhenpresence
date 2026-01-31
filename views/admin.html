@@ -25,9 +25,7 @@
                     <p class="text-[10px] text-green-200">Halo, {{.UserFullName}}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-3"><a href="/admin/reports"
-                    class="text-xs bg-purple-600 hover:bg-purple-500 px-3 py-1.5 rounded-lg transition"><i
-                        class="fa-solid fa-chart-line"></i> Laporan</a><a href="/admin/manage_accounts"
+            <div class="flex items-center gap-3"><a href="/admin/manage_accounts"
                     class="text-xs bg-amber-600 hover:bg-amber-500 px-3 py-1.5 rounded-lg transition"><i
                         class="fa-solid fa-users-gear"></i> Kelola Akun</a><a href="/dashboard"
                     class="text-xs bg-green-700/50 hover:bg-green-600 px-3 py-1.5 rounded-lg transition"><i
@@ -99,6 +97,11 @@
             <div class="p-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                 <h2 class="font-bold text-gray-800 text-sm"><i
                         class="fa-solid fa-list-check mr-2 text-green-700"></i>Log Presensi</h2>
+            </div>
+            <div class="p-5 border-b border-gray-100 bg-white">
+                <input type="text" id="searchEmployee" oninput="filterAttendanceLog()" 
+                    placeholder="🔍 Cari nama karyawan..." 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm">
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm text-gray-600">
@@ -285,6 +288,22 @@
         function resetPassword(id, n) { let p = prompt("Masukkan password BARU untuk " + n + ":"); if (p === null) return; if (p.trim() === "") { alert("Password kosong!"); return } fetch('/admin/reset_password', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `id=${id}&password=${p}` }).then(r => r.json()).then(d => { alert(d.message) }) }
         // FUNCTION DELETE LOG (BARU)
         function deleteLog(id, n) { if (!confirm("⚠️ PERINGATAN!\nApakah Anda yakin ingin MENGHAPUS log presensi " + n + "?\nData yang dihapus tidak bisa dikembalikan!")) return; fetch('/admin/delete_log', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `id=${id}` }).then(r => r.json()).then(d => { alert(d.message); location.reload() }) }
+        // FUNCTION FILTER ATTENDANCE LOG BY NAME
+        function filterAttendanceLog() {
+            const searchValue = document.getElementById('searchEmployee').value.toLowerCase();
+            const rows = document.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const nameCell = row.querySelector('td:nth-child(2)');
+                if (nameCell) {
+                    const name = nameCell.textContent.toLowerCase();
+                    if (name.includes(searchValue)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
     </script>
 </body>
 
